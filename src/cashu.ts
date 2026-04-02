@@ -107,13 +107,15 @@ export async function createPostageToken(
  * 5. Contact the mint to swap tokens (redeem).
  *
  * @param postage - The CashuPostage from a parsed mail.
- * @param ourPubkey - Our NOSTR hex pubkey.
+ * @param ourPubkey - Our NOSTR hex pubkey (x-only, 32 bytes).
+ * @param ourPrivkey - Our NOSTR hex private key (needed to sign P2PK swap).
  * @param minAmount - Minimum required amount (from spam policy).
  * @returns Verification result with validity, amount, and redemption status.
  */
 export async function verifyPostage(
   postage: CashuPostage,
   ourPubkey: string,
+  ourPrivkey: string,
   minAmount: number,
 ): Promise<{
   valid: boolean
@@ -211,9 +213,11 @@ export async function verifyPostage(
     const wallet = new CashuWallet(mint)
 
     // Swap the P2PK-locked proofs for fresh proofs owned by us.
-    // The wallet automatically signs the swap request with our key if
-    // the proofs have P2PK conditions.
-    await wallet.swap(totalAmount, proofs)
+    // The wallet signs the swap with our private key to satisfy P2PK conditions.
+    // The privkey is the compressed SEC1 format ('02' + hex x-only pubkey = our identity).
+    await wallet.swap(totalAmount, proofs, {
+      privkey: ourPrivkey,
+    })
 
     return {
       valid: true,
