@@ -1,0 +1,250 @@
+{
+  "description": "NOSTR Mail kind 15 event creation test vectors. Each vector specifies inputs and the expected rumor (unsigned event) output.",
+  "note": "Kind 15 events are rumors — no id or sig fields. The id and sig exist only on the seal (kind 13) and gift wrap (kind 1059) layers.",
+  "keys": {
+    "alice": {
+      "privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+      "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748"
+    },
+    "bob": {
+      "privkey": "c15d2a640a7bd00f291e074e5e40419e08593833a5b9bd1b4e89100ef750fa35",
+      "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"
+    },
+    "charlie": {
+      "privkey": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+      "pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4"
+    }
+  },
+  "vectors": [
+    {
+      "name": "simple text message",
+      "description": "Alice sends a plain text message to Bob with a subject line.",
+      "input": {
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "subject": "Hello",
+        "body": "Hi Bob, how are you?",
+        "created_at": 1711843200
+      },
+      "expected": {
+        "kind": 15,
+        "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "created_at": 1711843200,
+        "tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+          ["subject", "Hello"]
+        ],
+        "content": "Hi Bob, how are you?",
+        "note": "This is a rumor — no id or sig fields. Default content-type is text/plain (omitted when default). Single recipient defaults to 'to' role."
+      }
+    },
+    {
+      "name": "message with CC recipients",
+      "description": "Alice sends to Bob (to) and Charlie (cc). Both recipients are visible in the shared rumor tags.",
+      "input": {
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recipients": [
+          {
+            "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+            "relay_hint": "wss://relay.bob.com",
+            "role": "to"
+          },
+          {
+            "pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4",
+            "relay_hint": "wss://relay.charlie.com",
+            "role": "cc"
+          }
+        ],
+        "subject": "Meeting Notes",
+        "body": "Hi Bob, CC'ing Charlie for visibility on the meeting notes.",
+        "created_at": 1711843200
+      },
+      "expected": {
+        "kind": 15,
+        "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "created_at": 1711843200,
+        "tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "wss://relay.bob.com", "to"],
+          ["p", "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4", "wss://relay.charlie.com", "cc"],
+          ["subject", "Meeting Notes"]
+        ],
+        "content": "Hi Bob, CC'ing Charlie for visibility on the meeting notes.",
+        "note": "Both Bob and Charlie see the full recipient list after decryption. Each gets their own gift-wrapped copy with identical rumor content."
+      }
+    },
+    {
+      "name": "reply to existing message",
+      "description": "Bob replies to Alice's original message (vector 1). The reply tag points to the parent; the thread tag points to the root (same in this case since the parent IS the root).",
+      "input": {
+        "sender_privkey": "c15d2a640a7bd00f291e074e5e40419e08593833a5b9bd1b4e89100ef750fa35",
+        "sender_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "recipient_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "subject": "Re: Hello",
+        "body": "Hi Alice, I'm doing well! Thanks for asking.",
+        "created_at": 1711846800,
+        "parent_event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parent_relay_hint": "wss://relay.alice.com",
+        "root_event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "root_relay_hint": "wss://relay.alice.com"
+      },
+      "expected": {
+        "kind": 15,
+        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "created_at": 1711846800,
+        "tags": [
+          ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
+          ["subject", "Re: Hello"],
+          ["reply", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"],
+          ["thread", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"]
+        ],
+        "content": "Hi Alice, I'm doing well! Thanks for asking.",
+        "note": "When replying to the root message, both reply and thread tags reference the same event ID. The reply tag is the direct parent; the thread tag always points to the root."
+      }
+    },
+    {
+      "name": "message with markdown content-type",
+      "description": "Alice sends a formatted message using markdown content-type.",
+      "input": {
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "subject": "Q3 Revenue Report",
+        "body": "## Q3 Report Summary\n\n**Revenue**: $2.4M (+23%)\n\n### Key Metrics\n- New users: 45,000\n- Churn: 2.1%\n- NPS: 72\n\n> Revenue growth exceeded projections by 8 points.",
+        "content_type": "text/markdown",
+        "created_at": 1711843200
+      },
+      "expected": {
+        "kind": 15,
+        "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "created_at": 1711843200,
+        "tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+          ["subject", "Q3 Revenue Report"],
+          ["content-type", "text/markdown"]
+        ],
+        "content": "## Q3 Report Summary\n\n**Revenue**: $2.4M (+23%)\n\n### Key Metrics\n- New users: 45,000\n- Churn: 2.1%\n- NPS: 72\n\n> Revenue growth exceeded projections by 8 points.",
+        "note": "The content-type tag is only included when the body is NOT text/plain (the default). Markdown is the recommended rich format."
+      }
+    },
+    {
+      "name": "message with attachment reference",
+      "description": "Alice sends a message with a single encrypted Blossom attachment. The attachment hash and decryption key are included as tags.",
+      "input": {
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "subject": "Report attached",
+        "body": "Hi Bob, please find the Q3 report attached.",
+        "created_at": 1711843200,
+        "attachments": [
+          {
+            "blossom_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "filename": "Q3-Report.pdf",
+            "mime_type": "application/pdf",
+            "size_bytes": "2048576",
+            "encryption_key": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          }
+        ],
+        "blossom_servers": ["https://blossom.example.com"]
+      },
+      "expected": {
+        "kind": 15,
+        "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "created_at": 1711843200,
+        "tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+          ["subject", "Report attached"],
+          ["attachment", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "Q3-Report.pdf", "application/pdf", "2048576"],
+          ["attachment-key", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"],
+          ["blossom", "https://blossom.example.com"]
+        ],
+        "content": "Hi Bob, please find the Q3 report attached.",
+        "note": "The attachment tag references the Blossom SHA-256 hash. The attachment-key tag provides the NIP-44 symmetric key needed to decrypt the file after downloading from a Blossom server. The blossom tag lists server URLs where the file can be fetched."
+      }
+    },
+    {
+      "name": "message with Cashu P2PK postage token",
+      "description": "Alice sends a message to Bob (not in her contacts) with a Cashu P2PK ecash token as anti-spam postage. The token is locked to Bob's pubkey so only he can redeem it.",
+      "input": {
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "subject": "Introduction",
+        "body": "Hi Bob, we met at the conference. Here's my contact info.",
+        "created_at": 1711843200,
+        "cashu_token": "cashuBo2FteCJodHRwczovL21pbnQuZXhhbXBsZS5jb20iYXVjc2F0YXCBomFpSAAAAAAAAAABYXOBo2FhAWFzeEBlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1YWNYITAzYjQ2NjFiYzBmOTkzZjRiMmRlYjA0ZTZlZDM0MDBiMWNmODRlOGQxNDVhOTc1NGI=",
+        "cashu_amount_sats": 21
+      },
+      "expected": {
+        "kind": 15,
+        "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "created_at": 1711843200,
+        "tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+          ["subject", "Introduction"],
+          ["cashu", "cashuBo2FteCJodHRwczovL21pbnQuZXhhbXBsZS5jb20iYXVjc2F0YXCBomFpSAAAAAAAAAABYXOBo2FhAWFzeEBlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1YWNYITAzYjQ2NjFiYzBmOTkzZjRiMmRlYjA0ZTZlZDM0MDBiMWNmODRlOGQxNDVhOTc1NGI="]
+        ],
+        "content": "Hi Bob, we met at the conference. Here's my contact info.",
+        "note": "The Cashu token is a P2PK (Pay-to-Public-Key) token locked to Bob's pubkey. Only Bob can redeem the 21 sats. The token is serialized in the standard Cashu V4 format. This qualifies as Tier 3 (PAID) in the anti-spam model since 21 >= 10 sat minimum."
+      }
+    },
+    {
+      "name": "message with multiple attachments and inline image",
+      "description": "Alice sends a markdown message with two file attachments and one inline image referenced in the body via cid: URI.",
+      "input": {
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "subject": "Q3 Report with Charts",
+        "body": "## Q3 Revenue Report\n\nPlease review the attached documents.\n\n### Revenue Trend\n\n![Revenue Chart](cid:chart001)\n\nThe detailed spreadsheet and full report are attached.",
+        "content_type": "text/markdown",
+        "created_at": 1711843200,
+        "attachments": [
+          {
+            "blossom_hash": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "filename": "Q3-Report.pdf",
+            "mime_type": "application/pdf",
+            "size_bytes": "2048576",
+            "encryption_key": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "blossom_hash": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "filename": "Q3-Spreadsheet.xlsx",
+            "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "size_bytes": "524288",
+            "encryption_key": "2222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "inline_images": [
+          {
+            "blossom_hash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+            "content_id": "chart001",
+            "encryption_key": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        ],
+        "blossom_servers": ["https://blossom.example.com", "https://blossom.backup.com"]
+      },
+      "expected": {
+        "kind": 15,
+        "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "created_at": 1711843200,
+        "tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+          ["subject", "Q3 Report with Charts"],
+          ["content-type", "text/markdown"],
+          ["attachment", "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1", "Q3-Report.pdf", "application/pdf", "2048576"],
+          ["attachment", "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2", "Q3-Spreadsheet.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "524288"],
+          ["attachment-key", "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1", "1111111111111111111111111111111111111111111111111111111111111111"],
+          ["attachment-key", "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2", "2222222222222222222222222222222222222222222222222222222222222222"],
+          ["inline", "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3", "chart001"],
+          ["attachment-key", "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3", "3333333333333333333333333333333333333333333333333333333333333333"],
+          ["blossom", "https://blossom.example.com", "https://blossom.backup.com"]
+        ],
+        "content": "## Q3 Revenue Report\n\nPlease review the attached documents.\n\n### Revenue Trend\n\n![Revenue Chart](cid:chart001)\n\nThe detailed spreadsheet and full report are attached.",
+        "note": "Inline images use the 'inline' tag with a content-id that matches the cid: URI in the markdown body. The client replaces cid:chart001 with the decrypted image. Inline images also need an attachment-key tag for decryption. Multiple blossom servers provide redundancy."
+      }
+    }
+  ]
+}

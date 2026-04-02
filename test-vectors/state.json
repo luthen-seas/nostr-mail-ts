@@ -1,0 +1,210 @@
+{
+  "description": "Mailbox state (kind 10099) test vectors for NOSTR Mail. State uses a G-Set (grow-only set) for reads and LWW (last-writer-wins) for flags and folders. This enables conflict-free multi-device sync.",
+  "crdt_model": {
+    "reads": "G-Set (grow-only set). Once a message is marked read, it cannot be marked unread. Union of all read sets across devices.",
+    "flags": "LWW-Element-Set (last-writer-wins). The most recent created_at timestamp wins for flag state (flagged/unflagged).",
+    "folders": "LWW-Element-Set. The most recent created_at wins for folder assignment. A message can only be in one folder at a time.",
+    "deleted": "G-Set. Once marked deleted, cannot be undeleted via state merge (user can publish a new state without the deleted tag to reverse, but that is an explicit user action, not an automatic merge)."
+  },
+  "keys": {
+    "bob": {
+      "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"
+    }
+  },
+  "vectors": [
+    {
+      "name": "mark message as read",
+      "description": "Bob reads a message on his phone. The state event is updated to include the message ID in the read set with a timestamp.",
+      "input": {
+        "current_state": {
+          "kind": 10099,
+          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+          "created_at": 1711843200,
+          "tags": [
+            ["d", "mailbox-state"],
+            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"]
+          ],
+          "content": ""
+        },
+        "action": "mark_read",
+        "event_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "timestamp": 1711846800
+      },
+      "expected": {
+        "kind": 10099,
+        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "created_at": 1711846800,
+        "tags": [
+          ["d", "mailbox-state"],
+          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+        ],
+        "content": "",
+        "note": "The new read tag is appended. Existing read tags are preserved (G-Set grows monotonically). The event created_at is updated to reflect when the state was modified."
+      }
+    },
+    {
+      "name": "mark message as flagged",
+      "description": "Bob flags an important message. The flagged tag is added to the state event.",
+      "input": {
+        "current_state": {
+          "kind": 10099,
+          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+          "created_at": 1711843200,
+          "tags": [
+            ["d", "mailbox-state"],
+            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"]
+          ],
+          "content": ""
+        },
+        "action": "flag",
+        "event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "timestamp": 1711846800
+      },
+      "expected": {
+        "kind": 10099,
+        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "created_at": 1711846800,
+        "tags": [
+          ["d", "mailbox-state"],
+          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+          ["flagged", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        ],
+        "content": "",
+        "note": "Flagging adds a 'flagged' tag. Unflagging removes it in a subsequent state update (LWW — the latest state event wins)."
+      }
+    },
+    {
+      "name": "move message to folder",
+      "description": "Bob moves a message from inbox to the 'Work' folder.",
+      "input": {
+        "current_state": {
+          "kind": 10099,
+          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+          "created_at": 1711843200,
+          "tags": [
+            ["d", "mailbox-state"],
+            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+          ],
+          "content": ""
+        },
+        "action": "move_to_folder",
+        "event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "folder": "Work",
+        "timestamp": 1711850400
+      },
+      "expected": {
+        "kind": 10099,
+        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "created_at": 1711850400,
+        "tags": [
+          ["d", "mailbox-state"],
+          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
+          ["folder", "Work", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        ],
+        "content": "",
+        "note": "Messages without a folder tag are implicitly in the inbox. The folder tag format is ['folder', '<folder_name>', '<event_id>']. A message can only be in one folder; moving to a new folder replaces any existing folder tag for that event."
+      }
+    },
+    {
+      "name": "merge two state events (multi-device conflict resolution)",
+      "description": "Bob reads message C on his phone (Device 1) and flags message A on his laptop (Device 2) at roughly the same time. Both devices publish state updates. The client must merge them.",
+      "input": {
+        "state_device_1": {
+          "kind": 10099,
+          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+          "created_at": 1711850400,
+          "tags": [
+            ["d", "mailbox-state"],
+            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
+            ["read", "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "1711850400"],
+            ["folder", "Work", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+          ],
+          "content": "",
+          "note": "Device 1 added: read(C), folder(A -> Work)"
+        },
+        "state_device_2": {
+          "kind": 10099,
+          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+          "created_at": 1711850500,
+          "tags": [
+            ["d", "mailbox-state"],
+            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
+            ["flagged", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+            ["folder", "Personal", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+          ],
+          "content": "",
+          "note": "Device 2 added: flagged(A), folder(A -> Personal). Device 2 has later created_at."
+        }
+      },
+      "expected_merged": {
+        "kind": 10099,
+        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "created_at": 1711850500,
+        "tags": [
+          ["d", "mailbox-state"],
+          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
+          ["read", "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "1711850400"],
+          ["flagged", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          ["folder", "Personal", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        ],
+        "content": ""
+      },
+      "merge_rules_applied": {
+        "reads": "G-Set union: {A, B} union {A, B, C} = {A, B, C}. Read C from Device 1 is preserved even though Device 2 didn't have it.",
+        "flags": "LWW: Device 2 (created_at 1711850500) is newer than Device 1 (1711850400), so flagged(A) from Device 2 is accepted.",
+        "folders": "LWW: Device 2 is newer, so folder(A -> Personal) wins over folder(A -> Work).",
+        "note": "The merged state takes the higher created_at as the event timestamp. Reads use G-Set union (always grow). Flags and folders use LWW (latest created_at wins). This is a CRDT merge — both devices can independently produce the same merged result."
+      }
+    },
+    {
+      "name": "attempt to unread a message (no-op for G-Set)",
+      "description": "Bob accidentally reads a message and wants to mark it as unread. Because reads use a G-Set (grow-only), the read entry cannot be removed through merge. The client must handle this as a UI-level override.",
+      "input": {
+        "current_state": {
+          "kind": 10099,
+          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+          "created_at": 1711850400,
+          "tags": [
+            ["d", "mailbox-state"],
+            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+          ],
+          "content": ""
+        },
+        "action": "mark_unread",
+        "event_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected_merge_behavior": {
+        "state_unchanged_by_merge": true,
+        "reads_after_merge": [
+          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+        ],
+        "note": "G-Set merge will always re-add the read entry because the other device's state still contains it. The read for bbbb...bbbb persists across any merge operation."
+      },
+      "workaround": {
+        "description": "To support 'mark as unread' as a user-facing feature, implementations can use an 'unread' LWW tag that overrides the G-Set read status at the UI level.",
+        "explicit_unread_state": {
+          "kind": 10099,
+          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+          "created_at": 1711854000,
+          "tags": [
+            ["d", "mailbox-state"],
+            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
+            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
+            ["unread", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711854000"]
+          ],
+          "content": ""
+        },
+        "ui_interpretation": "If unread timestamp > read timestamp for the same event ID, display as unread. The G-Set still contains the read entry (for CRDT correctness), but the LWW unread tag overrides the display state.",
+        "note": "This is a pragmatic compromise: the G-Set guarantees convergence across devices for the 'has been seen' signal, while the LWW unread tag provides the UI-level 'mark as unread' feature that users expect from email."
+      }
+    }
+  ]
+}

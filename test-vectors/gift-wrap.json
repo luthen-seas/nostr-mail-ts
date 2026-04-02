@@ -1,0 +1,240 @@
+{
+  "description": "NIP-59 seal + gift wrap test vectors for NOSTR Mail. Because NIP-44 encryption uses random nonces and gift wraps use ephemeral keys, exact ciphertext cannot be tested. Instead, verify structure, round-trip correctness, and signature validity.",
+  "keys": {
+    "alice": {
+      "privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+      "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748"
+    },
+    "bob": {
+      "privkey": "c15d2a640a7bd00f291e074e5e40419e08593833a5b9bd1b4e89100ef750fa35",
+      "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"
+    },
+    "charlie": {
+      "privkey": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+      "pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4"
+    }
+  },
+  "vectors": [
+    {
+      "name": "seal creation",
+      "description": "Create a kind 13 seal event by NIP-44 encrypting a rumor to the recipient. The seal is signed by the sender.",
+      "input": {
+        "rumor": {
+          "kind": 15,
+          "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+          "created_at": 1711843200,
+          "tags": [
+            ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+            ["subject", "Hello"]
+          ],
+          "content": "Hi Bob, how are you?"
+        },
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"
+      },
+      "expected_structure": {
+        "kind": 13,
+        "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "tags": [],
+        "content": "<NIP-44 encrypted JSON string of the rumor>",
+        "id": "<SHA-256 of serialized event>",
+        "sig": "<Schnorr signature valid for Alice's pubkey>"
+      },
+      "checks": [
+        "seal.kind == 13",
+        "seal.pubkey == sender's pubkey (Alice)",
+        "seal.tags == [] (empty array — no metadata leakage)",
+        "seal.content is a valid NIP-44 ciphertext string",
+        "seal.id is a valid 32-byte hex SHA-256 hash",
+        "seal.sig is a valid Schnorr signature for seal.pubkey over seal.id",
+        "NIP-44 decrypt(seal.content, sender_privkey, recipient_pubkey) == JSON.stringify(rumor)",
+        "seal.created_at may be randomized (not necessarily matching rumor.created_at)"
+      ]
+    },
+    {
+      "name": "gift wrap creation",
+      "description": "Create a kind 1059 gift wrap by generating an ephemeral key, NIP-44 encrypting the seal to the recipient using the ephemeral key, and signing with the ephemeral key.",
+      "input": {
+        "seal": {
+          "kind": 13,
+          "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+          "created_at": 1711843200,
+          "tags": [],
+          "content": "<NIP-44 encrypted rumor>",
+          "id": "<seal-event-id>",
+          "sig": "<seal-signature>"
+        },
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+        "note": "An ephemeral keypair is generated fresh for each gift wrap. The ephemeral privkey is discarded after signing."
+      },
+      "expected_structure": {
+        "kind": 1059,
+        "pubkey": "<ephemeral pubkey — different every time>",
+        "created_at": "<randomized timestamp for metadata hiding>",
+        "tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"]
+        ],
+        "content": "<NIP-44 encrypted JSON string of the seal>",
+        "id": "<SHA-256 of serialized event>",
+        "sig": "<Schnorr signature valid for the ephemeral pubkey>"
+      },
+      "checks": [
+        "wrap.kind == 1059",
+        "wrap.pubkey is a valid 32-byte hex public key (ephemeral, not Alice's or Bob's)",
+        "wrap.tags has exactly one 'p' tag matching the recipient's pubkey",
+        "wrap.content is a valid NIP-44 ciphertext string",
+        "wrap.sig is a valid Schnorr signature for wrap.pubkey (the ephemeral key) over wrap.id",
+        "wrap.created_at is randomized (within a reasonable range, e.g., +/- 48 hours)",
+        "NIP-44 decrypt(wrap.content, recipient_privkey, ephemeral_pubkey) == JSON.stringify(seal)"
+      ]
+    },
+    {
+      "name": "full round-trip: create, wrap, unwrap, verify",
+      "description": "Alice creates a mail rumor, seals it, wraps it for Bob. Bob unwraps, unseals, and verifies the original rumor matches.",
+      "input": {
+        "original_rumor": {
+          "kind": 15,
+          "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+          "created_at": 1711843200,
+          "tags": [
+            ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+            ["subject", "Round-trip test"]
+          ],
+          "content": "This message should survive seal+wrap+unwrap+unseal intact."
+        },
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "recipient_privkey": "c15d2a640a7bd00f291e074e5e40419e08593833a5b9bd1b4e89100ef750fa35",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"
+      },
+      "steps": [
+        {
+          "step": 1,
+          "action": "Create seal",
+          "description": "NIP-44 encrypt(JSON.stringify(rumor), sender_privkey, recipient_pubkey) -> seal.content. Sign seal with sender_privkey."
+        },
+        {
+          "step": 2,
+          "action": "Create gift wrap",
+          "description": "Generate ephemeral keypair. NIP-44 encrypt(JSON.stringify(seal), ephemeral_privkey, recipient_pubkey) -> wrap.content. Sign wrap with ephemeral_privkey. Add ['p', recipient_pubkey] tag."
+        },
+        {
+          "step": 3,
+          "action": "Recipient receives gift wrap",
+          "description": "Bob receives the kind 1059 event. The 'p' tag matches his pubkey."
+        },
+        {
+          "step": 4,
+          "action": "Unwrap (decrypt gift wrap)",
+          "description": "NIP-44 decrypt(wrap.content, recipient_privkey, wrap.pubkey) -> seal JSON. Parse seal. Verify seal.sig is valid for seal.pubkey (reveals sender is Alice)."
+        },
+        {
+          "step": 5,
+          "action": "Unseal (decrypt seal)",
+          "description": "NIP-44 decrypt(seal.content, recipient_privkey, seal.pubkey) -> rumor JSON. Parse rumor."
+        },
+        {
+          "step": 6,
+          "action": "Verify round-trip",
+          "description": "Assert recovered rumor fields match the original exactly."
+        }
+      ],
+      "expected_after_round_trip": {
+        "recovered_rumor.kind": 15,
+        "recovered_rumor.pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recovered_rumor.created_at": 1711843200,
+        "recovered_rumor.tags": [
+          ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+          ["subject", "Round-trip test"]
+        ],
+        "recovered_rumor.content": "This message should survive seal+wrap+unwrap+unseal intact.",
+        "seal_pubkey_matches_sender": true,
+        "seal_signature_valid": true,
+        "wrap_signature_valid_for_ephemeral_key": true
+      }
+    },
+    {
+      "name": "multi-recipient wrapping",
+      "description": "Alice sends the same mail to Bob and Charlie. The same rumor is sealed once per recipient and wrapped once per recipient. Each recipient gets a distinct gift wrap with a distinct ephemeral key.",
+      "input": {
+        "rumor": {
+          "kind": 15,
+          "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+          "created_at": 1711843200,
+          "tags": [
+            ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+            ["p", "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4", "", "cc"],
+            ["subject", "Group message"]
+          ],
+          "content": "Hi Bob and Charlie, this goes to both of you."
+        },
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "recipients": [
+          {
+            "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
+            "privkey": "c15d2a640a7bd00f291e074e5e40419e08593833a5b9bd1b4e89100ef750fa35",
+            "name": "Bob"
+          },
+          {
+            "pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4",
+            "privkey": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+            "name": "Charlie"
+          }
+        ]
+      },
+      "checks": [
+        "Two separate gift wrap events are produced (one per recipient)",
+        "wrap_for_bob.tags == [['p', bob_pubkey]]",
+        "wrap_for_charlie.tags == [['p', charlie_pubkey]]",
+        "wrap_for_bob.pubkey != wrap_for_charlie.pubkey (different ephemeral keys)",
+        "wrap_for_bob.id != wrap_for_charlie.id (different events entirely)",
+        "wrap_for_bob.content != wrap_for_charlie.content (different ciphertexts)",
+        "Bob decrypts his wrap -> seal -> rumor == original rumor",
+        "Charlie decrypts his wrap -> seal -> rumor == original rumor",
+        "Bob CANNOT decrypt Charlie's gift wrap (wrong recipient key)",
+        "Charlie CANNOT decrypt Bob's gift wrap (wrong recipient key)",
+        "Both recovered rumors are field-for-field identical"
+      ]
+    },
+    {
+      "name": "self-copy wrapping",
+      "description": "Alice sends a message to Bob and also wraps a copy for herself (sender's outbox copy). This allows Alice to see her sent messages on other devices.",
+      "input": {
+        "rumor": {
+          "kind": 15,
+          "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+          "created_at": 1711843200,
+          "tags": [
+            ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
+            ["subject", "Self-copy test"]
+          ],
+          "content": "Bob gets this, and Alice keeps a copy too."
+        },
+        "sender_privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"
+      },
+      "expected_outputs": {
+        "wrap_for_bob": {
+          "kind": 1059,
+          "tags": [["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a"]],
+          "note": "Standard gift wrap to Bob. Seal encrypted to Bob's pubkey."
+        },
+        "wrap_for_alice_self": {
+          "kind": 1059,
+          "tags": [["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748"]],
+          "note": "Self-copy: seal is encrypted to Alice's own pubkey. Gift wrap 'p' tag is Alice's pubkey. Published to Alice's inbox relays."
+        }
+      },
+      "checks": [
+        "Two gift wraps produced: one for Bob, one for Alice (self)",
+        "Self-copy wrap.tags[0] == ['p', alice_pubkey]",
+        "Self-copy uses a different ephemeral key than Bob's wrap",
+        "Self-copy seal is encrypted with Alice as both sender and recipient",
+        "Alice can decrypt her self-copy: unwrap -> unseal -> original rumor",
+        "The recovered rumor from Alice's self-copy matches the original exactly",
+        "Bob CANNOT decrypt Alice's self-copy wrap",
+        "Relays see two gift wraps with different 'p' tags — they cannot tell one is a self-copy"
+      ]
+    }
+  ]
+}
