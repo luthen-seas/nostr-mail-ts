@@ -60,20 +60,6 @@ describe('end-to-end: send and receive mail', () => {
     expect(parsed.to[0]!.pubkey).toBe(BOB_PUBKEY)
 
     // 6. Bob evaluates spam tier (Alice in contacts -> Tier 0)
-    //    evaluateSpamTier expects a ParsedMail (full type from types.ts)
-    const fullParsedMail: ParsedMail = {
-      id: wrapEvent.id,
-      from: { pubkey: ALICE_PUBKEY },
-      to: [{ pubkey: BOB_PUBKEY }],
-      cc: [],
-      subject: parsed.subject,
-      body: parsed.body,
-      contentType: 'text/plain',
-      attachments: [],
-      createdAt: rumor.created_at,
-      receivedAt: Math.floor(Date.now() / 1000),
-    }
-
     const contacts = new Set([ALICE_PUBKEY])
     const tier = evaluateSpamTier(ALICE_PUBKEY, contacts, undefined, DEFAULT_SPAM_POLICY)
     expect(tier.tier).toBe(0)
@@ -244,22 +230,8 @@ describe('end-to-end: send and receive mail', () => {
     expect(parsed.cashuPostage!.amount).toBe(42)
 
     // 4. Evaluate spam -- Alice is unknown but paid with Cashu
-    const fullMail: ParsedMail = {
-      id: wrapEvent.id,
-      from: { pubkey: ALICE_PUBKEY },
-      to: [{ pubkey: BOB_PUBKEY }],
-      cc: [],
-      subject: parsed.subject,
-      body: parsed.body,
-      contentType: 'text/plain',
-      attachments: [],
-      cashuPostage: parsed.cashuPostage,
-      createdAt: rumor.created_at,
-      receivedAt: Math.floor(Date.now() / 1000),
-    }
-
     const contacts = new Set<string>() // Alice is NOT a contact
-    const tier = evaluateSpamTier(ALICE_PUBKEY, contacts, fullMail.cashuPostage, DEFAULT_SPAM_POLICY)
+    const tier = evaluateSpamTier(ALICE_PUBKEY, contacts, parsed.cashuPostage, DEFAULT_SPAM_POLICY)
     expect(tier.tier).toBe(1) // Cashu tier
     expect(tier.action).toBe('inbox')
 
