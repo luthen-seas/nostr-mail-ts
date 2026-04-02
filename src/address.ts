@@ -204,7 +204,7 @@ async function queryRelayList(
 
     const sub = pool.subscribeManyEose(
       searchRelays,
-      [{ kinds: [kind], authors: [pubkey], limit: 1 }],
+      { kinds: [kind], authors: [pubkey], limit: 1 },
       {
         onevent(event) {
           events.push(event)

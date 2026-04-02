@@ -7,7 +7,6 @@ import {
   CashuWallet,
   getEncodedToken,
   getDecodedToken,
-  type Proof,
   type Token,
 } from '@cashu/cashu-ts'
 import type { CashuPostage } from './types.js'
@@ -78,7 +77,7 @@ export async function createPostageToken(
     sigflag: 'SIG_INPUTS' as const, // Standard: sign all inputs
   }
 
-  const { proofs } = await wallet.mintProofs(amount, mintQuote.quote, {
+  const proofs = await wallet.mintProofs(amount, mintQuote.quote, {
     p2pk: p2pkCondition,
   })
 

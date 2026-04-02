@@ -1,5 +1,5 @@
 // ─── NOSTR Mail Protocol — Decryption (Receive Path) ────────────────────────
-// Unwraps a kind 1059 gift wrap → kind 13 seal → kind 1111 rumor.
+// Unwraps a kind 1059 gift wrap → kind 13 seal → kind 1400 rumor.
 
 import { verifyEvent } from 'nostr-tools'
 import * as nip44 from 'nostr-tools/nip44'
@@ -14,7 +14,7 @@ function getConversationKey(privkey: Uint8Array, pubkey: string): Uint8Array {
 
 /** The verified result of unwrapping a gift-wrapped mail event. */
 export interface UnwrapResult {
-  /** The decrypted kind 1111 mail rumor. */
+  /** The decrypted kind 1400 mail rumor. */
   rumor: MailMessage
   /** The sender's hex public key (from the seal layer). */
   senderPubkey: string
@@ -30,7 +30,7 @@ export interface UnwrapResult {
  *    to reveal the seal (kind 13).
  * 2. Verify the seal's signature to authenticate the sender.
  * 3. Decrypt the seal with ECDH(recipientPrivkey, seal.pubkey) to reveal
- *    the rumor (kind 1111).
+ *    the rumor (kind 1400).
  *
  * @param wrapEvent - A kind 1059 gift wrap event received from a relay.
  * @param recipientPrivkey - The recipient's private key (32 bytes).
@@ -110,8 +110,8 @@ export async function unwrapMail(
   }
 
   // Validate rumor structure
-  if (rumor.kind !== 1111) {
-    throw new Error(`Expected kind 1111 mail rumor, got kind ${rumor.kind}`)
+  if (rumor.kind !== 1400) {
+    throw new Error(`Expected kind 1400 mail rumor, got kind ${rumor.kind}`)
   }
 
   // Verify sender consistency: rumor.pubkey must match seal.pubkey

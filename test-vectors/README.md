@@ -1,12 +1,12 @@
 # NOSTR Mail Test Vectors
 
-Canonical test vectors for the NOSTR Mail protocol (kind 1111). Any conforming implementation MUST produce identical results for deterministic operations and pass all round-trip checks for non-deterministic operations (encryption).
+Canonical test vectors for the NOSTR Mail protocol (kind 1400). Any conforming implementation MUST produce identical results for deterministic operations and pass all round-trip checks for non-deterministic operations (encryption).
 
 ## File Index
 
 | File | Contents |
 |------|----------|
-| `mail-event.json` | Kind 1111 mail event (rumor) creation |
+| `mail-event.json` | Kind 1400 mail event (rumor) creation |
 | `gift-wrap.json` | NIP-59 seal + gift wrap encryption flow |
 | `thread.json` | Thread reconstruction from reply/thread tags |
 | `spam-tier.json` | Anti-spam tier evaluation |

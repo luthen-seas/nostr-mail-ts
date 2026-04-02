@@ -20,7 +20,7 @@
         "events": [
           {
             "event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
             "created_at": 1711843200,
             "tags": [
@@ -31,7 +31,7 @@
           },
           {
             "event_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
             "created_at": 1711846800,
             "tags": [
@@ -44,7 +44,7 @@
           },
           {
             "event_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
             "created_at": 1711850400,
             "tags": [
@@ -95,7 +95,7 @@
         "events": [
           {
             "event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
             "created_at": 1711843200,
             "tags": [
@@ -107,7 +107,7 @@
           },
           {
             "event_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
             "created_at": 1711846800,
             "tags": [
@@ -121,7 +121,7 @@
           },
           {
             "event_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4",
             "created_at": 1711847000,
             "tags": [
@@ -177,7 +177,7 @@
         "events": [
           {
             "event_id": "1000000000000000000000000000000000000000000000000000000000000000",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
             "created_at": 1711843200,
             "tags": [
@@ -188,7 +188,7 @@
           },
           {
             "event_id": "2000000000000000000000000000000000000000000000000000000000000000",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
             "created_at": 1711846800,
             "tags": [
@@ -201,7 +201,7 @@
           },
           {
             "event_id": "3000000000000000000000000000000000000000000000000000000000000000",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
             "created_at": 1711850400,
             "tags": [
@@ -214,7 +214,7 @@
           },
           {
             "event_id": "4000000000000000000000000000000000000000000000000000000000000000",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
             "created_at": 1711854000,
             "tags": [
@@ -227,7 +227,7 @@
           },
           {
             "event_id": "5000000000000000000000000000000000000000000000000000000000000000",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
             "created_at": 1711857600,
             "tags": [
@@ -287,7 +287,7 @@
         "events": [
           {
             "event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
             "created_at": 1711843200,
             "tags": [
@@ -298,7 +298,7 @@
           },
           {
             "event_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "kind": 1111,
+            "kind": 1400,
             "pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4",
             "created_at": 1711850400,
             "tags": [

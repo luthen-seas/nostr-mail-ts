@@ -38,7 +38,7 @@ describe('wrapMail + unwrapMail round-trip', () => {
     expect(result.senderPubkey).toBe(ALICE_PUBKEY)
     expect(result.verified).toBe(true)
     expect(result.rumor.content).toBe('Hello Bob!')
-    expect(result.rumor.kind).toBe(1111)
+    expect(result.rumor.kind).toBe(1400)
     expect(result.rumor.pubkey).toBe(ALICE_PUBKEY)
   })
 
@@ -167,7 +167,7 @@ describe('wrapMail + unwrapMail round-trip', () => {
     expect(result.senderPubkey).toBe(ALICE_PUBKEY)
     expect(result.verified).toBe(true)
     expect(result.rumor.content).toBe('Saved to sent folder.')
-    expect(result.rumor.kind).toBe(1111)
+    expect(result.rumor.kind).toBe(1400)
   })
 
   it('preserves all rumor fields through wrap/unwrap', async () => {

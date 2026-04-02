@@ -37,7 +37,7 @@ describe('end-to-end: send and receive mail', () => {
       createdAt: 1711843200,
     })
 
-    expect(rumor.kind).toBe(1111)
+    expect(rumor.kind).toBe(1400)
 
     // 2. Alice wraps for Bob
     const wrapEvent = await wrapMail(rumor, ALICE_PRIVKEY, BOB_PUBKEY)
@@ -128,8 +128,8 @@ describe('end-to-end: send and receive mail', () => {
 
     expect(bobParsed.subject).toBe(charlieParsed.subject)
     expect(bobParsed.body).toBe(charlieParsed.body)
-    expect(bobParsed.to).toHaveLength(1)
-    expect(bobParsed.to[0]!.pubkey).toBe(BOB_PUBKEY)
+    expect(bobParsed.to).toHaveLength(2) // Bob (to) + Charlie (cc)
+    expect(bobParsed.to.some(r => r.pubkey === BOB_PUBKEY)).toBe(true)
 
     // 6. Cross-decryption fails
     await expect(unwrapMail(wrapForCharlie, BOB_PRIVKEY)).rejects.toThrow()

@@ -4,9 +4,39 @@
 // Attachments are external Blossom references, not inline.
 // Encryption keys MUST use CSPRNG.
 
-import { sha256 } from '@noble/hashes/sha256'
-import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils'
 import type { MailAttachment, AttachmentInput } from './types.js'
+
+/** Convert a Uint8Array to a hex string. */
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Convert a hex string to a Uint8Array. */
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
+  }
+  return bytes
+}
+
+/** Generate cryptographically secure random bytes. */
+function randomBytes(length: number): Uint8Array {
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return bytes
+}
+
+/** Get an ArrayBuffer view of a Uint8Array (handles byteOffset correctly). */
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+}
+
+/** Compute SHA-256 hash of data using Web Crypto API. */
+async function sha256(data: Uint8Array): Promise<Uint8Array> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', toArrayBuffer(data))
+  return new Uint8Array(hashBuffer)
+}
 
 /** AES-256-GCM IV length in bytes. */
 const AES_IV_LENGTH = 12
@@ -29,16 +59,16 @@ async function encryptAesGcm(data: Uint8Array, key: Uint8Array): Promise<Uint8Ar
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key,
+    toArrayBuffer(key),
     { name: 'AES-GCM' },
     false,
     ['encrypt'],
   )
 
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
     cryptoKey,
-    data,
+    toArrayBuffer(data),
   )
 
   // Prepend IV to ciphertext: [IV (12 bytes)] [ciphertext + auth tag]
@@ -68,16 +98,16 @@ async function decryptAesGcm(encrypted: Uint8Array, key: Uint8Array): Promise<Ui
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key,
+    toArrayBuffer(key),
     { name: 'AES-GCM' },
     false,
     ['decrypt'],
   )
 
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
     cryptoKey,
-    ciphertext,
+    toArrayBuffer(ciphertext),
   )
 
   return new Uint8Array(plaintext)
@@ -117,7 +147,7 @@ export async function prepareAttachment(
   // Step 3: Compute SHA-256 hash of encrypted data (this is the Blossom hash)
   // Blossom identifies files by the hash of what's stored, which is the
   // encrypted data — not the plaintext.
-  const hash = bytesToHex(sha256(encryptedData))
+  const hash = bytesToHex(await sha256(encryptedData))
 
   // Step 4: Create MailAttachment metadata
   const attachment: MailAttachment = {
@@ -171,7 +201,7 @@ export async function uploadToBlossom(
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       headers,
-      body: encryptedData,
+      body: encryptedData as unknown as BodyInit,
       signal: controller.signal,
     })
 
@@ -261,7 +291,7 @@ export async function downloadAttachment(
       const encryptedData = await downloadFromBlossom(blossomUrl, attachment.hash)
 
       // Verify SHA-256 hash of the downloaded encrypted data
-      const computedHash = bytesToHex(sha256(encryptedData))
+      const computedHash = bytesToHex(await sha256(encryptedData))
       if (computedHash !== attachment.hash) {
         errors.push(
           `${blossomUrl}: hash mismatch (expected ${attachment.hash}, got ${computedHash})`,

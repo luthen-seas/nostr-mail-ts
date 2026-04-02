@@ -10,7 +10,7 @@
 
 | ID | Test | Requirement |
 |----|------|-------------|
-| E01 | Kind 1111 rumor has correct structure | `kind: 1111`, `pubkey` set, `tags` array, `content` string |
+| E01 | Kind 1400 rumor has correct structure | `kind: 1400`, `pubkey` set, `tags` array, `content` string |
 | E02 | Rumor has NO `id` or `sig` fields | Rumors are unsigned |
 | E03 | Recipient `p` tags include role marker | `["p", pubkey, relay, "to"/"cc"]` |
 | E04 | Subject tag is present | `["subject", "..."]` |

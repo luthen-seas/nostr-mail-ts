@@ -46,7 +46,7 @@ for await (const msg of mail.inbox()) {
 
 | Module | Purpose |
 |--------|---------|
-| `mail.ts` | Kind 1111 event creation and parsing |
+| `mail.ts` | Kind 1400 event creation and parsing |
 | `wrap.ts` | NIP-59 seal + gift wrap (send path) |
 | `unwrap.ts` | NIP-59 unwrap + unseal (receive path) |
 | `address.ts` | NIP-05 resolution + relay discovery |

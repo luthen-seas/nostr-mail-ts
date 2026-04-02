@@ -1,7 +1,8 @@
 // ─── NOSTR Mail Protocol — Relay Communication Helpers ──────────────────────
 // Publishes gift-wrapped events and subscribes to inbox streams via SimplePool.
 
-import type { SimplePool, SubCloser, VerifiedEvent } from 'nostr-tools'
+import type { SimplePool, VerifiedEvent } from 'nostr-tools'
+import type { SubCloser } from 'nostr-tools/pool'
 
 /** Default timeout for relay publish operations (in milliseconds). */
 const PUBLISH_TIMEOUT_MS = 10000
@@ -144,7 +145,7 @@ export function subscribeInbox(
   }
 
   try {
-    subCloser = pool.subscribeMany(relays, [filter], {
+    subCloser = pool.subscribeMany(relays, filter, {
       onevent(event) {
         // Deduplicate by event ID
         if (seenIds.has(event.id)) return
@@ -263,7 +264,7 @@ export async function fetchInboxEvents(
       resolve(events)
     }, 15000) // 15s safety timeout
 
-    const sub = pool.subscribeManyEose(relays, [filter], {
+    const sub = pool.subscribeManyEose(relays, filter, {
       onevent(event) {
         if (seenIds.has(event.id)) return
         seenIds.add(event.id)

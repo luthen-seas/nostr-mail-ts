@@ -54,19 +54,18 @@ export {
 
 // ── High-level NostrMail class ──────────────────────────────────────────────
 
-import { generateSecretKey, getPublicKey } from 'nostr-tools'
+import { getPublicKey } from 'nostr-tools'
 import type {
   NostrMailConfig,
   SendOptions,
   ParsedMail,
-  MailIdentity,
   SpamPolicy,
   MailboxState,
   Signer,
 } from './types.js'
 import { createMailRumor, parseMailRumor } from './mail.js'
 import { wrapMailForRecipients } from './wrap.js'
-import { unwrapMail, tryUnwrapMail } from './unwrap.js'
+import { tryUnwrapMail } from './unwrap.js'
 import { evaluateSpamTier, createSpamPolicy } from './spam.js'
 import { buildThread, flattenThread, groupByThread } from './thread.js'
 import {
@@ -105,7 +104,6 @@ export class NostrMail {
   private readonly privkey: Uint8Array | null
   private readonly signer: Signer | null
   private readonly relays: string[]
-  private readonly inboxRelays: string[]
   private readonly spamPolicy: SpamPolicy
   private state: MailboxState
 
@@ -117,7 +115,6 @@ export class NostrMail {
     this.privkey = config.privateKey ? hexToBytes(config.privateKey) : null
     this.signer = config.signer ?? null
     this.relays = config.relays ?? []
-    this.inboxRelays = config.inboxRelays ?? []
     this.spamPolicy = createSpamPolicy(config.spamPolicy)
     this.state = createMailboxState()
   }
@@ -138,7 +135,7 @@ export class NostrMail {
   /**
    * Compose and wrap a mail message for all recipients.
    *
-   * Creates a kind 1111 rumor, then gift-wraps it individually for each
+   * Creates a kind 1400 rumor, then gift-wraps it individually for each
    * recipient (To, CC, BCC) plus a self-copy. Returns the wrapped events
    * ready for relay publication.
    *
@@ -164,7 +161,7 @@ export class NostrMail {
       ...bccList.map(pubkey => ({ pubkey, role: 'bcc' as const })),
     ]
 
-    // Create the kind 1111 rumor
+    // Create the kind 1400 rumor
     const rumor = createMailRumor({
       senderPubkey,
       recipients,
