@@ -20,7 +20,7 @@
       "description": "Create a kind 13 seal event by NIP-44 encrypting a rumor to the recipient. The seal is signed by the sender.",
       "input": {
         "rumor": {
-          "kind": 15,
+          "kind": 1111,
           "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
           "created_at": 1711843200,
           "tags": [
@@ -93,7 +93,7 @@
       "description": "Alice creates a mail rumor, seals it, wraps it for Bob. Bob unwraps, unseals, and verifies the original rumor matches.",
       "input": {
         "original_rumor": {
-          "kind": 15,
+          "kind": 1111,
           "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
           "created_at": 1711843200,
           "tags": [
@@ -157,7 +157,7 @@
       "description": "Alice sends the same mail to Bob and Charlie. The same rumor is sealed once per recipient and wrapped once per recipient. Each recipient gets a distinct gift wrap with a distinct ephemeral key.",
       "input": {
         "rumor": {
-          "kind": 15,
+          "kind": 1111,
           "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
           "created_at": 1711843200,
           "tags": [
@@ -200,7 +200,7 @@
       "description": "Alice sends a message to Bob and also wraps a copy for herself (sender's outbox copy). This allows Alice to see her sent messages on other devices.",
       "input": {
         "rumor": {
-          "kind": 15,
+          "kind": 1111,
           "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
           "created_at": 1711843200,
           "tags": [

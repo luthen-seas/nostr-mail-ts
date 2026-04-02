@@ -138,7 +138,7 @@ export class NostrMail {
   /**
    * Compose and wrap a mail message for all recipients.
    *
-   * Creates a kind 15 rumor, then gift-wraps it individually for each
+   * Creates a kind 1111 rumor, then gift-wraps it individually for each
    * recipient (To, CC, BCC) plus a self-copy. Returns the wrapped events
    * ready for relay publication.
    *
@@ -164,7 +164,7 @@ export class NostrMail {
       ...bccList.map(pubkey => ({ pubkey, role: 'bcc' as const })),
     ]
 
-    // Create the kind 15 rumor
+    // Create the kind 1111 rumor
     const rumor = createMailRumor({
       senderPubkey,
       recipients,

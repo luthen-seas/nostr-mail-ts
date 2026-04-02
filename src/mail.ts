@@ -1,9 +1,9 @@
-// ─── NOSTR Mail Protocol — Kind 15 Event Creation & Parsing ─────────────────
+// ─── NOSTR Mail Protocol — Kind 1111 Event Creation & Parsing ─────────────────
 // Creates and parses the inner rumor layer of a NOSTR Mail message.
 
 import type { MailMessage, MailAttachment, CashuPostage } from './types.js'
 
-/** Parameters for creating a kind 15 mail rumor. */
+/** Parameters for creating a kind 1111 mail rumor. */
 export interface CreateMailRumorParams {
   /** Sender's hex public key. */
   senderPubkey: string
@@ -32,7 +32,7 @@ export interface CreateMailRumorParams {
 }
 
 /**
- * Create a kind 15 mail rumor (unsigned event).
+ * Create a kind 1111 mail rumor (unsigned event).
  *
  * This is the innermost layer of a NOSTR Mail message. It will be
  * sealed (kind 13) and gift-wrapped (kind 1059) before publication.
@@ -102,7 +102,7 @@ export function createMailRumor(params: CreateMailRumorParams): MailMessage {
   }
 
   return {
-    kind: 15,
+    kind: 1111,
     pubkey: params.senderPubkey,
     created_at: params.createdAt ?? Math.floor(Date.now() / 1000),
     tags,
@@ -110,7 +110,7 @@ export function createMailRumor(params: CreateMailRumorParams): MailMessage {
   }
 }
 
-/** Parsed result from a kind 15 rumor's tags. */
+/** Parsed result from a kind 1111 rumor's tags. */
 export interface ParsedMailRumor {
   from: string
   to: Array<{ pubkey: string; relay?: string; role: string }>
@@ -124,7 +124,7 @@ export interface ParsedMailRumor {
 }
 
 /**
- * Parse a decrypted kind 15 rumor back into structured data.
+ * Parse a decrypted kind 1111 rumor back into structured data.
  *
  * Extracts all tag-encoded fields (recipients, subject, attachments,
  * threading, Cashu postage) from the raw rumor event.

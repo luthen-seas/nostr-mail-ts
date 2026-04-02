@@ -16,7 +16,7 @@ describe('createMailRumor', () => {
       createdAt: 1711843200,
     })
 
-    expect(rumor.kind).toBe(15)
+    expect(rumor.kind).toBe(1111)
     expect(rumor.pubkey).toBe(ALICE_PUBKEY)
     expect(rumor.content).toBe('Hi Bob, how are you?')
     expect(rumor.created_at).toBe(1711843200)
@@ -39,7 +39,7 @@ describe('createMailRumor', () => {
       createdAt: 1711843200,
     })
 
-    expect(rumor.kind).toBe(15)
+    expect(rumor.kind).toBe(1111)
     expect(rumor.tags).toContainEqual(['p', BOB_PUBKEY, '', 'to'])
     expect(rumor.tags).toContainEqual(['p', CHARLIE_PUBKEY, '', 'cc'])
 
@@ -64,7 +64,7 @@ describe('createMailRumor', () => {
       createdAt: 1711846800,
     })
 
-    expect(rumor.kind).toBe(15)
+    expect(rumor.kind).toBe(1111)
     expect(rumor.tags).toContainEqual(['reply', ORIGINAL_ID, ''])
     expect(rumor.tags).toContainEqual(['thread', ROOT_ID, ''])
     expect(rumor.tags).toContainEqual(['subject', 'Re: Hello'])
@@ -322,7 +322,7 @@ describe('parseMailRumor', () => {
   it('handles missing optional fields gracefully', () => {
     // Minimal rumor with just pubkey, kind, content, and a subject tag
     const minimalRumor = {
-      kind: 15 as const,
+      kind: 1111 as const,
       pubkey: ALICE_PUBKEY,
       created_at: 1711843200,
       tags: [['subject', 'Minimal']],
@@ -344,7 +344,7 @@ describe('parseMailRumor', () => {
 
   it('parses a rumor with no tags at all', () => {
     const noTagRumor = {
-      kind: 15 as const,
+      kind: 1111 as const,
       pubkey: ALICE_PUBKEY,
       created_at: 1711843200,
       tags: [] as string[][],

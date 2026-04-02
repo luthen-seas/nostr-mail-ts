@@ -37,7 +37,7 @@ describe('end-to-end: send and receive mail', () => {
       createdAt: 1711843200,
     })
 
-    expect(rumor.kind).toBe(15)
+    expect(rumor.kind).toBe(1111)
 
     // 2. Alice wraps for Bob
     const wrapEvent = await wrapMail(rumor, ALICE_PRIVKEY, BOB_PUBKEY)

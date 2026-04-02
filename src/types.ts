@@ -1,9 +1,9 @@
 // ─── NOSTR Mail Protocol — Type Definitions ────────────────────────────────
-// All types for kind 15 mail events, anti-spam, state sync, and threading.
+// All types for kind 1111 mail events, anti-spam, state sync, and threading.
 
-/** A NOSTR Mail message (kind 15 rumor — unsigned). */
+/** A NOSTR Mail message (kind 1111 rumor — unsigned). */
 export interface MailMessage {
-  kind: 15
+  kind: 1111
   pubkey: string
   created_at: number
   tags: string[][]

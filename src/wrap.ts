@@ -32,7 +32,7 @@ function getConversationKey(privkey: Uint8Array, pubkey: string): Uint8Array {
  * Seal and gift-wrap a mail rumor for a specific recipient.
  *
  * Implements the three-layer NIP-59 encryption:
- * 1. **Rumor** (kind 15, unsigned) — the actual mail content
+ * 1. **Rumor** (kind 1111, unsigned) — the actual mail content
  * 2. **Seal** (kind 13, signed by sender) — NIP-44 encrypts the rumor
  *    using ECDH(sender, recipient). Timestamp randomized ±2 days.
  * 3. **Gift Wrap** (kind 1059, signed by ephemeral key) — NIP-44 encrypts
@@ -41,7 +41,7 @@ function getConversationKey(privkey: Uint8Array, pubkey: string): Uint8Array {
  * The wrap event includes a `["p", recipientPubkey]` tag so relays can
  * route it to the recipient's inbox.
  *
- * @param rumor - The kind 15 mail rumor (unsigned).
+ * @param rumor - The kind 1111 mail rumor (unsigned).
  * @param senderPrivkey - Sender's private key (32 bytes).
  * @param recipientPubkey - Recipient's hex public key.
  * @returns A signed kind 1059 gift wrap event ready for relay publication.
@@ -90,6 +90,9 @@ export async function wrapMail(
   // Sign the wrap with the ephemeral key
   const wrap = finalizeEvent(wrapTemplate, ephemeralPrivkey)
 
+  // Zero ephemeral key material (defense in depth)
+  ephemeralPrivkey.fill(0)
+
   return wrap
 }
 
@@ -112,7 +115,7 @@ export interface WrappedMailResult {
  *
  * A self-copy is always created so the sender can read their own sent mail.
  *
- * @param rumor - The kind 15 mail rumor (unsigned).
+ * @param rumor - The kind 1111 mail rumor (unsigned).
  * @param senderPrivkey - Sender's private key (32 bytes).
  * @param recipients - Array of recipient pubkeys with relay preferences.
  * @returns Array of wrapped events, one per recipient plus one self-copy.
@@ -162,7 +165,7 @@ export function unwrapGiftWrap(
 }
 
 /**
- * Decrypt the seal layer (kind 13 → kind 15 rumor).
+ * Decrypt the seal layer (kind 13 → kind 1111 rumor).
  *
  * @param seal - The kind 13 seal event.
  * @param recipientPrivkey - Recipient's private key (32 bytes).

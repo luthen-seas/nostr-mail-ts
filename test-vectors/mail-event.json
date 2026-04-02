@@ -1,6 +1,6 @@
 {
-  "description": "NOSTR Mail kind 15 event creation test vectors. Each vector specifies inputs and the expected rumor (unsigned event) output.",
-  "note": "Kind 15 events are rumors — no id or sig fields. The id and sig exist only on the seal (kind 13) and gift wrap (kind 1059) layers.",
+  "description": "NOSTR Mail kind 1111 event creation test vectors. Each vector specifies inputs and the expected rumor (unsigned event) output.",
+  "note": "Kind 1111 events are rumors — no id or sig fields. The id and sig exist only on the seal (kind 13) and gift wrap (kind 1059) layers.",
   "keys": {
     "alice": {
       "privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
@@ -28,7 +28,7 @@
         "created_at": 1711843200
       },
       "expected": {
-        "kind": 15,
+        "kind": 1111,
         "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
         "created_at": 1711843200,
         "tags": [
@@ -62,7 +62,7 @@
         "created_at": 1711843200
       },
       "expected": {
-        "kind": 15,
+        "kind": 1111,
         "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
         "created_at": 1711843200,
         "tags": [
@@ -90,7 +90,7 @@
         "root_relay_hint": "wss://relay.alice.com"
       },
       "expected": {
-        "kind": 15,
+        "kind": 1111,
         "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
         "created_at": 1711846800,
         "tags": [
@@ -116,7 +116,7 @@
         "created_at": 1711843200
       },
       "expected": {
-        "kind": 15,
+        "kind": 1111,
         "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
         "created_at": 1711843200,
         "tags": [
@@ -150,7 +150,7 @@
         "blossom_servers": ["https://blossom.example.com"]
       },
       "expected": {
-        "kind": 15,
+        "kind": 1111,
         "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
         "created_at": 1711843200,
         "tags": [
@@ -178,7 +178,7 @@
         "cashu_amount_sats": 21
       },
       "expected": {
-        "kind": 15,
+        "kind": 1111,
         "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
         "created_at": 1711843200,
         "tags": [
@@ -227,7 +227,7 @@
         "blossom_servers": ["https://blossom.example.com", "https://blossom.backup.com"]
       },
       "expected": {
-        "kind": 15,
+        "kind": 1111,
         "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
         "created_at": 1711843200,
         "tags": [
