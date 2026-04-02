@@ -43,12 +43,12 @@
 | ID | Test | Requirement |
 |----|------|-------------|
 | S01 | Contact sender → Tier 0 (inbox) | Sender in kind 3 follow list → free delivery |
-| S02 | NIP-05 verified → Tier 1 (inbox) | Sender has valid NIP-05 → free delivery |
-| S03 | Sufficient PoW → Tier 2 (inbox) | Event PoW ≥ policy threshold → free delivery |
-| S04 | Valid Cashu P2PK token → Tier 3 (inbox) | Token amount ≥ threshold, locked to recipient |
-| S05 | No qualifying signal → Tier 5 (quarantine) | Unknown sender, no payment → quarantine |
-| S06 | Tier evaluation is highest-free-tier-wins | Contact + PoW → Tier 0 (not Tier 2) |
-| S07 | Cashu tokens MUST be P2PK locked | Bearer tokens (no P2PK) → rejected |
+| S02 | Valid Cashu P2PK token → Tier 1 (inbox) | Token amount ≥ threshold, locked to recipient |
+| S03 | No qualifying signal → Tier 2 (quarantine) | Unknown sender, no payment → quarantine |
+| S04 | Tier evaluation: contact wins over Cashu | Contact + Cashu → Tier 0 (not Tier 1) |
+| S05 | Cashu tokens MUST be P2PK locked | Bearer tokens (no P2PK) → Tier 2 (rejected) |
+| S06 | Untrusted mint → Tier 2 | Cashu from non-accepted mint → quarantine |
+| S07 | Cashu below threshold → Tier 2 | Amount < cashu-min-sats → quarantine |
 
 ### Category 4: Mailbox State (MUST PASS)
 

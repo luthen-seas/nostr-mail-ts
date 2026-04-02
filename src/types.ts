@@ -81,8 +81,8 @@ export interface CashuPostage {
 
 /** Anti-spam tier evaluation result. */
 export interface SpamTier {
-  /** Tier number: 0 = most trusted, 5 = unknown/rejected. */
-  tier: 0 | 1 | 2 | 3 | 4 | 5
+  /** Tier number: 0 = contact, 1 = Cashu paid, 2 = unknown/rejected. */
+  tier: 0 | 1 | 2
   /** Human-readable reason for the tier classification. */
   reason: string
   /** Recommended action based on the tier. */
@@ -93,13 +93,9 @@ export interface SpamTier {
 export interface SpamPolicy {
   /** Whether contacts (kind 3 follows) bypass all checks. */
   contactsFree: boolean
-  /** Whether NIP-05 verified senders bypass PoW/Cashu checks. */
-  nip05Free: boolean
-  /** Minimum NIP-13 PoW difficulty bits required. */
-  powMinBits: number
   /** Minimum Cashu postage amount in satoshis. */
   cashuMinSats: number
-  /** Accepted Cashu mint URLs. */
+  /** Accepted Cashu mint URLs (empty = reject all non-contact mail without Cashu). */
   acceptedMints: string[]
   /** Action for messages that pass no tier: quarantine or reject. */
   unknownAction: 'quarantine' | 'reject'

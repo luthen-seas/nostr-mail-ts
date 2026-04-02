@@ -75,7 +75,7 @@ describe('end-to-end: send and receive mail', () => {
     }
 
     const contacts = new Set([ALICE_PUBKEY])
-    const tier = evaluateSpamTier(fullParsedMail, DEFAULT_SPAM_POLICY, contacts, false, 0)
+    const tier = evaluateSpamTier(ALICE_PUBKEY, contacts, undefined, DEFAULT_SPAM_POLICY)
     expect(tier.tier).toBe(0)
     expect(tier.action).toBe('inbox')
 
@@ -259,8 +259,8 @@ describe('end-to-end: send and receive mail', () => {
     }
 
     const contacts = new Set<string>() // Alice is NOT a contact
-    const tier = evaluateSpamTier(fullMail, DEFAULT_SPAM_POLICY, contacts, false, 0)
-    expect(tier.tier).toBe(3) // Cashu tier
+    const tier = evaluateSpamTier(ALICE_PUBKEY, contacts, fullMail.cashuPostage, DEFAULT_SPAM_POLICY)
+    expect(tier.tier).toBe(1) // Cashu tier
     expect(tier.action).toBe('inbox')
 
     // 5. Bob reads the message and stars it

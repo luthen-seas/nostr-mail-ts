@@ -142,7 +142,10 @@ export function markDeleted(
 }
 
 /**
- * Merge two mailbox states (CRDT merge).
+ * Note: Callers SHOULD reject state events with created_at more than
+ * 1 hour in the future (prevents timestamp manipulation attacks).
+ *
+ $1 (CRDT merge).
  *
  * - **reads**: G-Set union (append-only, any read from either state persists).
  * - **deleted**: G-Set union (same as reads).

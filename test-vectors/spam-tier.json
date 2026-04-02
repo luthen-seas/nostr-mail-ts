@@ -2,31 +2,26 @@
   "description": "Anti-spam tier evaluation test vectors for NOSTR Mail. The recipient's client evaluates each incoming message against a tiered policy to determine inbox placement.",
   "tier_model": {
     "tier_0": { "condition": "Sender in recipient's contact list (kind 3)", "cost": "FREE", "action": "Inbox" },
-    "tier_1": { "condition": "Sender has valid NIP-05 identifier", "cost": "FREE", "action": "Inbox" },
-    "tier_2": { "condition": "Event has PoW >= minimum bits (NIP-13)", "cost": "FREE (compute)", "action": "Inbox" },
-    "tier_3": { "condition": "Message includes valid Cashu P2PK token >= minimum sats", "cost": "PAID", "action": "Inbox" },
-    "tier_4": { "condition": "L402 Lightning payment completed", "cost": "PAID (custom)", "action": "Inbox" },
-    "tier_5": { "condition": "None of the above", "cost": "None", "action": "Quarantine" }
+    "tier_1": { "condition": "Message includes valid Cashu P2PK token >= minimum sats", "cost": "PAID", "action": "Inbox" },
+    "tier_2": { "condition": "None of the above", "cost": "None", "action": "Quarantine or Reject" }
   },
   "evaluation_rules": [
-    "Tiers are evaluated in order from 0 to 5",
+    "Tiers are evaluated in order from 0 to 2",
     "The FIRST matching tier determines the result",
     "A message that matches multiple tiers is classified at the LOWEST (highest priority) matching tier",
     "Tier evaluation happens AFTER decryption (the client must unwrap the gift wrap first)",
-    "PoW is checked on the seal (kind 13) or gift wrap (kind 1059) event, NOT on the rumor"
+    "NIP-05 is used ONLY for address resolution, NOT as a trust signal",
+    "NIP-13 proof-of-work is NOT used in the anti-spam tier model"
   ],
   "recipient_policy": {
     "description": "The test recipient (Bob) has published this spam policy (kind 10097).",
     "kind": 10097,
     "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
     "tags": [
-      ["d", "spam-policy"],
-      ["contacts", "free"],
-      ["nip05", "free"],
-      ["pow-min", "20"],
-      ["cashu-min", "10"],
+      ["contacts-free", "true"],
+      ["cashu-min-sats", "10"],
       ["unknown-action", "quarantine"],
-      ["payment-mint", "https://mint.example.com"]
+      ["accepted-mint", "https://mint.example.com"]
     ],
     "content": ""
   },
@@ -45,8 +40,6 @@
       "description": "Alice sends a message to Bob. Alice is in Bob's kind 3 contact list.",
       "input": {
         "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
-        "sender_nip05": null,
-        "pow_bits": 0,
         "cashu_token": null,
         "cashu_amount_sats": 0,
         "sender_in_contacts": true
@@ -60,64 +53,19 @@
       }
     },
     {
-      "name": "sender has valid NIP-05 -> Tier 1 (FREE)",
-      "description": "Charlie sends to Bob. Charlie is NOT in Bob's contacts but has a verified NIP-05 identifier.",
-      "input": {
-        "sender_pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4",
-        "sender_nip05": "charlie@example.com",
-        "sender_nip05_verified": true,
-        "pow_bits": 0,
-        "cashu_token": null,
-        "cashu_amount_sats": 0,
-        "sender_in_contacts": false
-      },
-      "expected": {
-        "tier": 1,
-        "tier_name": "NIP-05 Verified",
-        "cost": "FREE",
-        "action": "inbox",
-        "reason": "Sender has verified NIP-05 identifier charlie@example.com. DNS lookup confirms pubkey d3e4...d3e4 at /.well-known/nostr.json?name=charlie on example.com."
-      }
-    },
-    {
-      "name": "event has PoW >= 20 bits -> Tier 2 (FREE)",
-      "description": "An unknown sender (not in contacts, no NIP-05) sends a message with proof-of-work committed in the seal event. The seal event ID has 20 leading zero bits.",
-      "input": {
-        "sender_pubkey": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
-        "sender_nip05": null,
-        "sender_nip05_verified": false,
-        "pow_bits": 21,
-        "pow_committed_on": "seal",
-        "pow_target_tag": ["nonce", "4294967296", "20"],
-        "cashu_token": null,
-        "cashu_amount_sats": 0,
-        "sender_in_contacts": false
-      },
-      "expected": {
-        "tier": 2,
-        "tier_name": "Proof of Work",
-        "cost": "FREE (compute time)",
-        "action": "inbox",
-        "reason": "Seal event has 21 leading zero bits in event ID, which meets the minimum threshold of 20 bits. The nonce tag commits to the target difficulty per NIP-13."
-      },
-      "note": "PoW is checked on the seal or gift wrap event (not the unsigned rumor, which has no event ID). The nonce tag format is ['nonce', '<nonce_value>', '<target_bits>']."
-    },
-    {
-      "name": "message includes valid Cashu token >= 10 sats -> Tier 3 (PAID)",
+      "name": "valid Cashu P2PK token >= 10 sats -> Tier 1 (PAID)",
       "description": "An unknown sender attaches a Cashu P2PK token worth 21 sats, locked to Bob's pubkey.",
       "input": {
         "sender_pubkey": "f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
-        "sender_nip05": null,
-        "sender_nip05_verified": false,
-        "pow_bits": 0,
         "cashu_token": "cashuBo2FteCJodHRwczovL21pbnQuZXhhbXBsZS5jb20iYXVjc2F0YXCBomFpSAAAAAAAAAABYXOBo2FhAWFzeEBlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1YWNYITAzYjQ2NjFiYzBmOTkzZjRiMmRlYjA0ZTZlZDM0MDBiMWNmODRlOGQxNDVhOTc1NGI=",
         "cashu_amount_sats": 21,
         "cashu_mint": "https://mint.example.com",
+        "cashu_p2pk": true,
         "cashu_locked_to_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
         "sender_in_contacts": false
       },
       "expected": {
-        "tier": 3,
+        "tier": 1,
         "tier_name": "Cashu Payment",
         "cost": "21 sats",
         "action": "inbox",
@@ -125,54 +73,87 @@
       },
       "validation_steps": [
         "Parse the cashu tag value as a Cashu V4 token",
-        "Verify the token is from a mint the recipient trusts (matches payment-mint in spam policy)",
-        "Verify the token total amount >= cashu-min (10 sats)",
+        "Verify the token is from a mint the recipient trusts (matches accepted-mint in spam policy)",
+        "Verify the token total amount >= cashu-min-sats (10 sats)",
         "Verify the P2PK lock pubkey matches the recipient's pubkey",
         "Verify the token proofs are not already spent (call mint's /v1/checkstate endpoint)",
         "If valid, redeem the token immediately to prevent double-spend"
       ]
     },
     {
-      "name": "unknown sender, no payment, no PoW -> Tier 5 (QUARANTINE)",
-      "description": "A completely unknown sender with no identity verification, no proof-of-work, and no payment. This is the default spam case.",
+      "name": "unknown sender, no payment -> Tier 2 (QUARANTINE)",
+      "description": "A completely unknown sender with no payment. This is the default spam case.",
       "input": {
         "sender_pubkey": "f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
-        "sender_nip05": null,
-        "sender_nip05_verified": false,
-        "pow_bits": 0,
         "cashu_token": null,
         "cashu_amount_sats": 0,
         "sender_in_contacts": false
       },
       "expected": {
-        "tier": 5,
+        "tier": 2,
         "tier_name": "Unknown",
         "cost": "None",
         "action": "quarantine",
-        "reason": "Sender not in contacts, no NIP-05 verification, no proof-of-work, no payment. Message is quarantined per recipient's spam policy (unknown-action = quarantine)."
+        "reason": "Sender not in contacts and no valid Cashu postage. Message is quarantined per recipient's spam policy (unknown-action = quarantine)."
       },
       "note": "Quarantined messages are stored but not shown in the inbox. The recipient can review the quarantine folder manually. The message is NOT rejected — the relay accepted it (gift wrap is valid), but the client classifies it as spam."
     },
     {
-      "name": "mixed: NIP-05 verified + Cashu token -> Tier 1 (highest free tier wins)",
-      "description": "Charlie (NIP-05 verified, not in contacts) also attaches a Cashu token. Since tiers are evaluated in order and NIP-05 matches Tier 1, the message is classified as Tier 1 (the first match wins).",
+      "name": "non-P2PK Cashu token -> Tier 2 (REJECTED)",
+      "description": "Sender attaches a Cashu token that is NOT P2PK locked. Bearer tokens are rejected because they can be front-run by relays or network observers.",
       "input": {
-        "sender_pubkey": "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4",
-        "sender_nip05": "charlie@example.com",
-        "sender_nip05_verified": true,
-        "pow_bits": 0,
-        "cashu_token": "cashuBo2FteCJodHRwczovL21pbnQuZXhhbXBsZS5jb20iYXVjc2F0YXCBomFpSAAAAAAAAAABYXOBo2FhAWFzeEBlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1YWNYITAzYjQ2NjFiYzBmOTkzZjRiMmRlYjA0ZTZlZDM0MDBiMWNmODRlOGQxNDVhOTc1NGI=",
+        "sender_pubkey": "f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4",
+        "cashu_token": "cashuBbearer",
         "cashu_amount_sats": 21,
+        "cashu_mint": "https://mint.example.com",
+        "cashu_p2pk": false,
         "sender_in_contacts": false
       },
       "expected": {
-        "tier": 1,
-        "tier_name": "NIP-05 Verified",
+        "tier": 2,
+        "tier_name": "Unknown",
+        "cost": "None",
+        "action": "quarantine",
+        "reason": "Cashu token is not P2PK locked. Bearer tokens are rejected to prevent front-running."
+      }
+    },
+    {
+      "name": "Cashu from untrusted mint -> Tier 2",
+      "description": "Sender attaches a valid P2PK Cashu token but from a mint not in the recipient's accepted list.",
+      "input": {
+        "sender_pubkey": "f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5",
+        "cashu_token": "cashuBuntrusted",
+        "cashu_amount_sats": 100,
+        "cashu_mint": "https://evil-mint.example.com",
+        "cashu_p2pk": true,
+        "sender_in_contacts": false
+      },
+      "expected": {
+        "tier": 2,
+        "tier_name": "Unknown",
+        "cost": "None",
+        "action": "quarantine",
+        "reason": "Cashu mint is not in the recipient's accepted mints list."
+      }
+    },
+    {
+      "name": "contact + Cashu -> Tier 0 (contact wins)",
+      "description": "Alice (in contacts) also attaches a Cashu token. Contact list is checked first, so the message is classified as Tier 0. The Cashu token SHOULD NOT be redeemed.",
+      "input": {
+        "sender_pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748",
+        "cashu_token": "cashuBo2FteCJodHRwczovL21pbnQuZXhhbXBsZS5jb20iYXVjc2F0YXCBomFpSAAAAAAAAAABYXOBo2FhAWFzeEBlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1YWNYITAzYjQ2NjFiYzBmOTkzZjRiMmRlYjA0ZTZlZDM0MDBiMWNmODRlOGQxNDVhOTc1NGI=",
+        "cashu_amount_sats": 21,
+        "cashu_mint": "https://mint.example.com",
+        "cashu_p2pk": true,
+        "sender_in_contacts": true
+      },
+      "expected": {
+        "tier": 0,
+        "tier_name": "Contact",
         "cost": "FREE",
         "action": "inbox",
-        "reason": "Sender matches Tier 1 (NIP-05 verified) which is evaluated before Tier 3 (Cashu payment). First matching tier wins.",
-        "cashu_token_action": "Do NOT redeem the Cashu token — the message qualified for free delivery. The token should be returned/ignored.",
-        "note": "Implementations SHOULD NOT redeem Cashu tokens when the message qualifies for a free tier. This prevents unnecessary payment extraction from legitimate senders who are being cautious."
+        "reason": "Sender is in contact list. Cashu token SHOULD NOT be redeemed.",
+        "cashu_token_action": "Do NOT redeem the Cashu token — the message qualified for free delivery via contact list."
       }
     }
   ]

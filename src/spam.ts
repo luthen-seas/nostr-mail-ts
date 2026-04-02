@@ -1,14 +1,12 @@
 // ─── NOSTR Mail Protocol — Anti-Spam Tier Evaluation ────────────────────────
-// Implements the 6-tier trust model: contacts -> NIP-05 -> PoW -> Cashu -> unknown.
+// Implements the 3-tier trust model: contacts -> Cashu P2PK -> quarantine/reject.
 
-import type { ParsedMail, SpamPolicy, SpamTier } from './types.js'
+import type { CashuPostage, SpamPolicy, SpamTier } from './types.js'
 
 /** Default spam policy values. */
 export const DEFAULT_SPAM_POLICY: SpamPolicy = {
   contactsFree: true,
-  nip05Free: true,
-  powMinBits: 20,
-  cashuMinSats: 1,
+  cashuMinSats: 10,
   acceptedMints: [],
   unknownAction: 'quarantine',
 }
@@ -29,31 +27,24 @@ export function createSpamPolicy(overrides?: Partial<SpamPolicy>): SpamPolicy {
  * The tier model (in priority order):
  * - **Tier 0**: Sender is in the recipient's contact list (kind 3 follows).
  *   Always delivered to inbox.
- * - **Tier 1**: Sender has a valid NIP-05 identifier. Delivered to inbox
- *   if the policy allows NIP-05 senders.
- * - **Tier 2**: The gift wrap event has sufficient NIP-13 proof-of-work.
- *   Delivered to inbox if PoW meets the policy threshold.
- * - **Tier 3**: The message includes a valid Cashu P2PK token meeting
+ * - **Tier 1**: The message includes a valid Cashu P2PK token meeting
  *   the minimum amount. Delivered to inbox.
- * - **Tier 4**: Reserved for future trust signals.
- * - **Tier 5**: None of the above. Quarantined or rejected per policy.
+ * - **Tier 2**: None of the above. Quarantined or rejected per policy.
  *
- * @param mail - The parsed mail message.
- * @param policy - The recipient's spam policy (kind 10097).
+ * @param senderPubkey - The sender's hex public key (from the seal).
  * @param contactList - Set of pubkeys the recipient follows (kind 3).
- * @param nip05Verified - Whether the sender has a valid NIP-05.
- * @param eventPowBits - NIP-13 PoW difficulty bits on the wrap event.
+ * @param cashuPostage - Cashu postage token from the rumor, if present.
+ * @param policy - The recipient's spam policy (kind 10097).
  * @returns The tier classification with reason and recommended action.
  */
 export function evaluateSpamTier(
-  mail: ParsedMail,
-  policy: SpamPolicy,
+  senderPubkey: string,
   contactList: Set<string>,
-  nip05Verified: boolean,
-  eventPowBits: number,
+  cashuPostage: CashuPostage | undefined,
+  policy: SpamPolicy,
 ): SpamTier {
   // ── Tier 0: Sender is a contact ──────────────────────────────────────
-  if (policy.contactsFree && contactList.has(mail.from.pubkey)) {
+  if (policy.contactsFree && contactList.has(senderPubkey)) {
     return {
       tier: 0,
       reason: 'Sender is in contact list',
@@ -61,32 +52,12 @@ export function evaluateSpamTier(
     }
   }
 
-  // ── Tier 1: Sender has valid NIP-05 ──────────────────────────────────
-  if (policy.nip05Free && nip05Verified) {
-    return {
-      tier: 1,
-      reason: 'Sender has verified NIP-05 identity',
-      action: 'inbox',
-    }
-  }
-
-  // ── Tier 2: Sufficient proof-of-work ─────────────────────────────────
-  if (policy.powMinBits > 0 && eventPowBits >= policy.powMinBits) {
-    return {
-      tier: 2,
-      reason: `Event has ${eventPowBits} PoW bits (required: ${policy.powMinBits})`,
-      action: 'inbox',
-    }
-  }
-
-  // ── Tier 3: Valid Cashu P2PK postage ─────────────────────────────────
-  if (mail.cashuPostage) {
-    const { cashuPostage } = mail
-
+  // ── Tier 1: Valid Cashu P2PK postage ─────────────────────────────────
+  if (cashuPostage) {
     // Check P2PK requirement
     if (!cashuPostage.p2pk) {
       return {
-        tier: 5,
+        tier: 2,
         reason: 'Cashu token is not P2PK locked (P2PK is required)',
         action: policy.unknownAction,
       }
@@ -95,7 +66,7 @@ export function evaluateSpamTier(
     // Check minimum amount
     if (cashuPostage.amount < policy.cashuMinSats) {
       return {
-        tier: 5,
+        tier: 2,
         reason: `Cashu postage ${cashuPostage.amount} sats below minimum ${policy.cashuMinSats} sats`,
         action: policy.unknownAction,
       }
@@ -107,23 +78,23 @@ export function evaluateSpamTier(
       !policy.acceptedMints.includes(cashuPostage.mint)
     ) {
       return {
-        tier: 5,
+        tier: 2,
         reason: `Cashu mint ${cashuPostage.mint} is not in accepted mints list`,
         action: policy.unknownAction,
       }
     }
 
     return {
-      tier: 3,
+      tier: 1,
       reason: `Valid Cashu P2PK postage: ${cashuPostage.amount} sats`,
       action: 'inbox',
     }
   }
 
-  // ── Tier 5: Unknown sender, no trust signals ─────────────────────────
+  // ── Tier 2: Unknown sender, no qualifying signal ─────────────────────
   return {
-    tier: 5,
-    reason: 'No trust signals: not a contact, no NIP-05, insufficient PoW, no Cashu postage',
+    tier: 2,
+    reason: 'No qualifying signal: not a contact, no valid Cashu postage',
     action: policy.unknownAction,
   }
 }
@@ -133,9 +104,7 @@ export function evaluateSpamTier(
  *
  * Expected tags:
  * - `["contacts-free", "true"|"false"]`
- * - `["nip05-free", "true"|"false"]`
- * - `["pow-min-bits", "20"]`
- * - `["cashu-min-sats", "1"]`
+ * - `["cashu-min-sats", "10"]`
  * - `["accepted-mint", mintUrl]` (repeatable)
  * - `["unknown-action", "quarantine"|"reject"]`
  *
@@ -152,12 +121,6 @@ export function parsePolicyTags(tags: string[][]): SpamPolicy {
     switch (key) {
       case 'contacts-free':
         policy.contactsFree = value !== 'false'
-        break
-      case 'nip05-free':
-        policy.nip05Free = value !== 'false'
-        break
-      case 'pow-min-bits':
-        policy.powMinBits = parseInt(value ?? '0', 10)
         break
       case 'cashu-min-sats':
         policy.cashuMinSats = parseInt(value ?? '0', 10)
@@ -187,8 +150,6 @@ export function parsePolicyTags(tags: string[][]): SpamPolicy {
 export function policyToTags(policy: SpamPolicy): string[][] {
   const tags: string[][] = [
     ['contacts-free', String(policy.contactsFree)],
-    ['nip05-free', String(policy.nip05Free)],
-    ['pow-min-bits', String(policy.powMinBits)],
     ['cashu-min-sats', String(policy.cashuMinSats)],
     ['unknown-action', policy.unknownAction],
   ]

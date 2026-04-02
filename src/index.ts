@@ -235,16 +235,12 @@ export class NostrMail {
    *
    * @param mail - A parsed mail message (from receive()).
    * @param contactList - Set of pubkeys the user follows.
-   * @param nip05Verified - Whether the sender's NIP-05 was verified.
-   * @param powBits - NIP-13 PoW bits on the wrap event.
    */
   evaluateSpam(
     mail: ParsedMail,
     contactList: Set<string>,
-    nip05Verified: boolean = false,
-    powBits: number = 0,
   ) {
-    return evaluateSpamTier(mail, this.spamPolicy, contactList, nip05Verified, powBits)
+    return evaluateSpamTier(mail.from.pubkey, contactList, mail.cashuPostage, this.spamPolicy)
   }
 
   /**
