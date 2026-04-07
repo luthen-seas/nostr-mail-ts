@@ -286,7 +286,7 @@ describe('mailbox state — serialization', () => {
     state = moveToFolder(state, 'msg2', 'archive')
     state = markDeleted(state, 'msg3')
 
-    const tags = stateToTags(state)
+    const tags = stateToTags(state, "2026-04")
     const restored = tagsToState(tags)
 
     expect(isRead(restored, 'msg1')).toBe(true)
@@ -301,8 +301,9 @@ describe('mailbox state — serialization', () => {
   it('serializes empty state', () => {
     const state = createMailboxState()
 
-    const tags = stateToTags(state)
-    expect(tags).toHaveLength(0)
+    const tags = stateToTags(state, '2026-04')
+    expect(tags).toHaveLength(1) // just the d-tag partition
+    expect(tags[0]).toEqual(['d', '2026-04'])
 
     const restored = tagsToState(tags)
     expect(restored.reads.size).toBe(0)
@@ -320,7 +321,7 @@ describe('mailbox state — serialization', () => {
     state = moveToFolder(state, 'ev3', 'sent')
     state = markDeleted(state, 'ev4')
 
-    const tags = stateToTags(state)
+    const tags = stateToTags(state, "2026-04")
 
     expect(tags).toContainEqual(['read', 'ev1'])
     expect(tags).toContainEqual(['flag', 'ev2', 'starred', 'important'])

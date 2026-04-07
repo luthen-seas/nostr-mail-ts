@@ -1,6 +1,6 @@
 {
-  "description": "NOSTR Mail kind 1400 event creation test vectors. Each vector specifies inputs and the expected rumor (unsigned event) output.",
-  "note": "Kind 1400 events are rumors — no id or sig fields. The id and sig exist only on the seal (kind 13) and gift wrap (kind 1059) layers.",
+  "description": "NOSTR Mail kind 1400 event creation test vectors. Each vector specifies inputs and the expected rumor (unsigned event) output. Every rumor MUST include a message-id tag.",
+  "note": "Kind 1400 events are rumors — no id or sig fields. The id and sig exist only on the seal (kind 13) and gift wrap (kind 1059) layers. The message-id is a stable identity shared across all recipients.",
   "keys": {
     "alice": {
       "privkey": "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
@@ -25,7 +25,8 @@
         "recipient_pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
         "subject": "Hello",
         "body": "Hi Bob, how are you?",
-        "created_at": 1711843200
+        "created_at": 1711843200,
+        "message_id": "b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
       },
       "expected": {
         "kind": 1400,
@@ -33,10 +34,11 @@
         "created_at": 1711843200,
         "tags": [
           ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
-          ["subject", "Hello"]
+          ["subject", "Hello"],
+          ["message-id", "b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"]
         ],
         "content": "Hi Bob, how are you?",
-        "note": "This is a rumor — no id or sig fields. Default content-type is text/plain (omitted when default). Single recipient defaults to 'to' role."
+        "note": "This is a rumor — no id or sig fields. Default content-type is text/plain (omitted when default). Single recipient defaults to 'to' role. The message-id is a CSPRNG-generated 32-byte hex identifier."
       }
     },
     {
@@ -59,7 +61,8 @@
         ],
         "subject": "Meeting Notes",
         "body": "Hi Bob, CC'ing Charlie for visibility on the meeting notes.",
-        "created_at": 1711843200
+        "created_at": 1711843200,
+        "message_id": "a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3"
       },
       "expected": {
         "kind": 1400,
@@ -68,10 +71,11 @@
         "tags": [
           ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "wss://relay.bob.com", "to"],
           ["p", "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4", "wss://relay.charlie.com", "cc"],
-          ["subject", "Meeting Notes"]
+          ["subject", "Meeting Notes"],
+          ["message-id", "a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3"]
         ],
         "content": "Hi Bob, CC'ing Charlie for visibility on the meeting notes.",
-        "note": "Both Bob and Charlie see the full recipient list after decryption. Each gets their own gift-wrapped copy with identical rumor content."
+        "note": "Both Bob and Charlie see the full recipient list after decryption. Each gets their own gift-wrapped copy with identical rumor content. The message-id is identical across all copies."
       }
     },
     {
@@ -84,9 +88,10 @@
         "subject": "Re: Hello",
         "body": "Hi Alice, I'm doing well! Thanks for asking.",
         "created_at": 1711846800,
-        "parent_event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "message_id": "c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3",
+        "parent_message_id": "b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
         "parent_relay_hint": "wss://relay.alice.com",
-        "root_event_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "root_message_id": "b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
         "root_relay_hint": "wss://relay.alice.com"
       },
       "expected": {
@@ -96,11 +101,12 @@
         "tags": [
           ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
           ["subject", "Re: Hello"],
-          ["reply", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"],
-          ["thread", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"]
+          ["message-id", "c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3"],
+          ["reply", "b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2", "wss://relay.alice.com"],
+          ["thread", "b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2", "wss://relay.alice.com"]
         ],
         "content": "Hi Alice, I'm doing well! Thanks for asking.",
-        "note": "When replying to the root message, both reply and thread tags reference the same event ID. The reply tag is the direct parent; the thread tag always points to the root."
+        "note": "Reply and thread tags reference message-id values (not gift-wrap event IDs). When replying to the root message, both tags reference the same message-id."
       }
     },
     {
@@ -113,7 +119,8 @@
         "subject": "Q3 Revenue Report",
         "body": "## Q3 Report Summary\n\n**Revenue**: $2.4M (+23%)\n\n### Key Metrics\n- New users: 45,000\n- Churn: 2.1%\n- NPS: 72\n\n> Revenue growth exceeded projections by 8 points.",
         "content_type": "text/markdown",
-        "created_at": 1711843200
+        "created_at": 1711843200,
+        "message_id": "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5"
       },
       "expected": {
         "kind": 1400,
@@ -122,6 +129,7 @@
         "tags": [
           ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
           ["subject", "Q3 Revenue Report"],
+          ["message-id", "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5"],
           ["content-type", "text/markdown"]
         ],
         "content": "## Q3 Report Summary\n\n**Revenue**: $2.4M (+23%)\n\n### Key Metrics\n- New users: 45,000\n- Churn: 2.1%\n- NPS: 72\n\n> Revenue growth exceeded projections by 8 points.",
@@ -147,7 +155,8 @@
             "encryption_key": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
           }
         ],
-        "blossom_servers": ["https://blossom.example.com"]
+        "blossom_servers": ["https://blossom.example.com"],
+        "message_id": "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6"
       },
       "expected": {
         "kind": 1400,
@@ -156,6 +165,7 @@
         "tags": [
           ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
           ["subject", "Report attached"],
+          ["message-id", "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6"],
           ["attachment", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "Q3-Report.pdf", "application/pdf", "2048576"],
           ["attachment-key", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"],
           ["blossom", "https://blossom.example.com"]
@@ -175,7 +185,8 @@
         "body": "Hi Bob, we met at the conference. Here's my contact info.",
         "created_at": 1711843200,
         "cashu_token": "cashuBo2FteCJodHRwczovL21pbnQuZXhhbXBsZS5jb20iYXVjc2F0YXCBomFpSAAAAAAAAAABYXOBo2FhAWFzeEBlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1YWNYITAzYjQ2NjFiYzBmOTkzZjRiMmRlYjA0ZTZlZDM0MDBiMWNmODRlOGQxNDVhOTc1NGI=",
-        "cashu_amount_sats": 21
+        "cashu_amount_sats": 21,
+        "message_id": "f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7"
       },
       "expected": {
         "kind": 1400,
@@ -184,6 +195,7 @@
         "tags": [
           ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
           ["subject", "Introduction"],
+          ["message-id", "f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7"],
           ["cashu", "cashuBo2FteCJodHRwczovL21pbnQuZXhhbXBsZS5jb20iYXVjc2F0YXCBomFpSAAAAAAAAAABYXOBo2FhAWFzeEBlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1YWNYITAzYjQ2NjFiYzBmOTkzZjRiMmRlYjA0ZTZlZDM0MDBiMWNmODRlOGQxNDVhOTc1NGI="]
         ],
         "content": "Hi Bob, we met at the conference. Here's my contact info.",
@@ -224,7 +236,8 @@
             "encryption_key": "3333333333333333333333333333333333333333333333333333333333333333"
           }
         ],
-        "blossom_servers": ["https://blossom.example.com", "https://blossom.backup.com"]
+        "blossom_servers": ["https://blossom.example.com", "https://blossom.backup.com"],
+        "message_id": "a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8"
       },
       "expected": {
         "kind": 1400,
@@ -233,6 +246,7 @@
         "tags": [
           ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
           ["subject", "Q3 Report with Charts"],
+          ["message-id", "a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8"],
           ["content-type", "text/markdown"],
           ["attachment", "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1", "Q3-Report.pdf", "application/pdf", "2048576"],
           ["attachment", "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2", "Q3-Spreadsheet.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "524288"],

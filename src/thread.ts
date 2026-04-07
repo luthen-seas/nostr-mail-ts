@@ -19,21 +19,23 @@ import type { ParsedMail, ThreadNode } from './types.js'
 export function buildThread(messages: ParsedMail[]): ThreadNode[] {
   if (messages.length === 0) return []
 
-  // Step 1: Create a node for each message, indexed by ID
+  // Step 1: Create a node for each message, indexed by message-id
   const nodeMap = new Map<string, ThreadNode>()
   for (const msg of messages) {
-    nodeMap.set(msg.id, {
+    const key = msg.messageId || msg.id
+    nodeMap.set(key, {
       message: msg,
       children: [],
       parent: undefined,
     })
   }
 
-  // Step 2: Link children to parents via replyTo
+  // Step 2: Link children to parents via replyTo (references message-id)
   const roots: ThreadNode[] = []
 
   for (const msg of messages) {
-    const node = nodeMap.get(msg.id)
+    const key = msg.messageId || msg.id
+    const node = nodeMap.get(key)
     if (!node) continue
 
     if (msg.replyTo) {
@@ -120,8 +122,8 @@ export function groupByThread(messages: ParsedMail[]): Map<string, ParsedMail[]>
   for (const msg of messages) {
     // Determine the thread key:
     // 1. If the message has an explicit threadId, use it
-    // 2. Otherwise, use the message's own ID (it starts a new thread)
-    const threadKey = msg.threadId ?? msg.id
+    // 2. Otherwise, use the message's own messageId (it starts a new thread)
+    const threadKey = msg.threadId ?? msg.messageId ?? msg.id
 
     const existing = threads.get(threadKey)
     if (existing) {

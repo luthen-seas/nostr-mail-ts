@@ -7,6 +7,8 @@ import type { MailMessage, MailAttachment, CashuPostage } from './types.js'
 export interface CreateMailRumorParams {
   /** Sender's hex public key. */
   senderPubkey: string
+  /** Stable message identity (32-byte hex). Auto-generated if omitted. */
+  messageId?: string
   /** List of recipients with roles. */
   recipients: Array<{ pubkey: string; relay?: string; role: 'to' | 'cc' | 'bcc' }>
   /** Mail subject line. */
@@ -58,6 +60,13 @@ export function createMailRumor(params: CreateMailRumorParams): MailMessage {
 
   // Subject (required)
   tags.push(['subject', params.subject])
+
+  // Message ID — stable identity shared across all recipients (CSPRNG)
+  const messageId = params.messageId ?? Array.from(
+    crypto.getRandomValues(new Uint8Array(32)),
+    b => b.toString(16).padStart(2, '0'),
+  ).join('')
+  tags.push(['message-id', messageId])
 
   // Content type — only tag if not the default text/plain
   if (params.contentType && params.contentType !== 'text/plain') {
@@ -113,6 +122,7 @@ export function createMailRumor(params: CreateMailRumorParams): MailMessage {
 /** Parsed result from a kind 1400 rumor's tags. */
 export interface ParsedMailRumor {
   from: string
+  messageId: string
   to: Array<{ pubkey: string; relay?: string; role: string }>
   subject: string
   body: string
@@ -139,6 +149,7 @@ export function parseMailRumor(rumor: MailMessage): ParsedMailRumor {
     }))
 
   const subject = rumor.tags.find(t => t[0] === 'subject')?.[1] ?? ''
+  const messageId = rumor.tags.find(t => t[0] === 'message-id')?.[1] ?? ''
   const contentType =
     rumor.tags.find(t => t[0] === 'content-type')?.[1] ?? 'text/plain'
   const replyTo = rumor.tags.find(t => t[0] === 'reply')?.[1]
@@ -178,6 +189,7 @@ export function parseMailRumor(rumor: MailMessage): ParsedMailRumor {
 
   return {
     from: rumor.pubkey,
+    messageId,
     to: recipients,
     subject,
     body: rumor.content,

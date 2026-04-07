@@ -70,7 +70,7 @@ describe('end-to-end: send and receive mail', () => {
     mailboxState = markRead(mailboxState, wrapEvent.id)
 
     // 8. Verify read state is persistent (survives serialization round-trip)
-    const tags = stateToTags(mailboxState)
+    const tags = stateToTags(mailboxState, "2026-04")
     const restored = tagsToState(tags)
     expect(isRead(restored, wrapEvent.id)).toBe(true)
   })
@@ -246,7 +246,7 @@ describe('end-to-end: send and receive mail', () => {
     expect(getFolder(state, wrapEvent.id)).toBe('inbox')
 
     // 6. State survives serialization
-    const tags = stateToTags(state)
+    const tags = stateToTags(state, "2026-04")
     const restored = tagsToState(tags)
 
     expect(isRead(restored, wrapEvent.id)).toBe(true)

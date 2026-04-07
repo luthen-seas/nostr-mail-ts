@@ -14,6 +14,8 @@ export interface MailMessage {
 export interface ParsedMail {
   /** Event ID of the gift wrap envelope. */
   id: string
+  /** Stable message identity shared across all recipients (from message-id tag). */
+  messageId: string
   /** Sender identity. */
   from: MailIdentity
   /** TO recipients. */
@@ -28,9 +30,9 @@ export interface ParsedMail {
   contentType: 'text/plain' | 'text/markdown' | 'text/html'
   /** File attachments (Blossom references). */
   attachments: MailAttachment[]
-  /** Root event ID for threading. */
+  /** Root message-id for threading. */
   threadId?: string
-  /** Parent event ID for reply chains. */
+  /** Parent message-id for reply chains. */
   replyTo?: string
   /** Anti-spam Cashu postage token, if present. */
   cashuPostage?: CashuPostage
@@ -101,7 +103,7 @@ export interface SpamPolicy {
   unknownAction: 'quarantine' | 'reject'
 }
 
-/** Mailbox state for read/flag/folder/delete tracking (kind 10099). */
+/** Mailbox state for read/flag/folder/delete tracking (kind 30099, partitioned by month). */
 export interface MailboxState {
   /** G-Set of event IDs marked as read (append-only, irreversible). */
   reads: Set<string>

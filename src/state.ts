@@ -1,5 +1,6 @@
 // ─── NOSTR Mail Protocol — Mailbox State ─────────────────────────────────────
-// G-Set reads (append-only), LWW flags/folders, serialization for kind 10099.
+// G-Set reads (append-only), LWW flags/folders, serialization for kind 30099.
+// State is partitioned by month (d tag = YYYY-MM). IDs are message-id values.
 
 import type { MailboxState } from './types.js'
 
@@ -26,7 +27,7 @@ export function createMailboxState(): MailboxState {
  * read will propagate to all other devices on merge.
  *
  * @param state - Current mailbox state.
- * @param eventId - The gift wrap event ID to mark as read.
+ * @param messageId - The message-id to mark as read.
  * @returns Updated mailbox state (new object, original not mutated).
  */
 export function markRead(state: MailboxState, eventId: string): MailboxState {
@@ -39,7 +40,7 @@ export function markRead(state: MailboxState, eventId: string): MailboxState {
  * Check if a message has been marked as read.
  *
  * @param state - Current mailbox state.
- * @param eventId - The gift wrap event ID to check.
+ * @param messageId - The message-id to check.
  * @returns True if the message is in the read G-Set.
  */
 export function isRead(state: MailboxState, eventId: string): boolean {
@@ -153,7 +154,7 @@ export function markDeleted(
  * - **folders**: LWW — takes values from `b` for conflicts (assuming `b` is newer).
  *
  * In practice, the caller should ensure `b` is the more recent state
- * (e.g., from a newer kind 10099 event) for correct LWW resolution.
+ * (e.g., from a newer kind 30099 event) for correct LWW resolution.
  *
  * @param a - The older (or local) mailbox state.
  * @param b - The newer (or remote) mailbox state.
@@ -185,7 +186,7 @@ export function mergeStates(a: MailboxState, b: MailboxState): MailboxState {
 }
 
 /**
- * Serialize mailbox state to tags for a kind 10099 event.
+ * Serialize mailbox state to tags for a kind 30099 event.
  *
  * Tag format:
  * - `["read", eventId]` for each read message
@@ -194,10 +195,11 @@ export function mergeStates(a: MailboxState, b: MailboxState): MailboxState {
  * - `["deleted", eventId]` for deleted messages
  *
  * @param state - The mailbox state to serialize.
- * @returns Tags array for a kind 10099 replaceable event.
+ * @param partition - Month partition in YYYY-MM format (e.g., '2026-04').
+ * @returns Tags array for a kind 30099 addressable event.
  */
-export function stateToTags(state: MailboxState): string[][] {
-  const tags: string[][] = []
+export function stateToTags(state: MailboxState, partition: string): string[][] {
+  const tags: string[][] = [['d', partition]]
 
   for (const id of state.reads) {
     tags.push(['read', id])
@@ -221,10 +223,10 @@ export function stateToTags(state: MailboxState): string[][] {
 }
 
 /**
- * Deserialize a kind 10099 event's tags to mailbox state.
+ * Deserialize a kind 30099 event's tags to mailbox state.
  *
- * @param tags - Tags from a kind 10099 event.
- * @returns Reconstructed MailboxState.
+ * @param tags - Tags from a kind 30099 event.
+ * @returns Reconstructed MailboxState. The `d` tag is ignored (partition info).
  */
 export function tagsToState(tags: string[][]): MailboxState {
   const state = createMailboxState()

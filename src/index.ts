@@ -209,6 +209,7 @@ export class NostrMail {
     // Build ParsedMail from the raw parse result
     const mail: ParsedMail = {
       id: wrapEvent.id,
+      messageId: parsed.messageId,
       from: { pubkey: result.senderPubkey },
       to: parsed.to
         .filter(r => r.role === 'to')
@@ -293,7 +294,7 @@ export class NostrMail {
   /**
    * Merge remote mailbox state into the local state.
    *
-   * @param remote - A MailboxState from a kind 10099 event.
+   * @param remote - A MailboxState from a kind 30099 event.
    */
   mergeState(remote: MailboxState): void {
     this.state = mergeStates(this.state, remote)

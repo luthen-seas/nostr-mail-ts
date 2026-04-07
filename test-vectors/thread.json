@@ -1,6 +1,6 @@
 {
-  "description": "Thread reconstruction test vectors for NOSTR Mail. Given a set of decrypted mail rumors, implementations must reconstruct the correct thread tree using 'reply' (parent) and 'thread' (root) tags.",
-  "note": "Event IDs in these vectors are synthetic 64-character hex strings for readability. In production, event IDs are SHA-256 hashes of the serialized event.",
+  "description": "Thread reconstruction test vectors for NOSTR Mail. Given a set of decrypted mail rumors, implementations must reconstruct the correct thread tree using 'reply' (parent) and 'thread' (root) tags, which reference message-id values (NOT gift-wrap event IDs).",
+  "note": "Threading uses message-id tag values, not event IDs. Each rumor includes a ['message-id', '<hex>'] tag that provides a stable identifier for threading. The 'reply' and 'thread' tags reference these message-id values. The event_id field is the gift-wrap event ID and is NOT used for threading. Message-id values in these vectors are synthetic 64-character hex strings for readability.",
   "keys": {
     "alice": {
       "pubkey": "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748"
@@ -15,7 +15,7 @@
   "vectors": [
     {
       "name": "simple thread (root, reply, reply-to-reply)",
-      "description": "A three-message linear thread: Alice starts, Bob replies, Alice replies to Bob.",
+      "description": "A three-message linear thread: Alice starts, Bob replies, Alice replies to Bob. Threading uses message-id values, not event IDs.",
       "input": {
         "events": [
           {
@@ -25,7 +25,8 @@
             "created_at": 1711843200,
             "tags": [
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
-              ["subject", "Project Update"]
+              ["subject", "Project Update"],
+              ["message-id", "1111111111111111111111111111111111111111111111111111111111111111"]
             ],
             "content": "Hi Bob, here's the project update."
           },
@@ -37,8 +38,9 @@
             "tags": [
               ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
               ["subject", "Re: Project Update"],
-              ["reply", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"],
-              ["thread", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"]
+              ["message-id", "2222222222222222222222222222222222222222222222222222222222222222"],
+              ["reply", "1111111111111111111111111111111111111111111111111111111111111111", "wss://relay.alice.com"],
+              ["thread", "1111111111111111111111111111111111111111111111111111111111111111", "wss://relay.alice.com"]
             ],
             "content": "Thanks Alice, looks good. One question about the timeline."
           },
@@ -50,47 +52,48 @@
             "tags": [
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
               ["subject", "Re: Project Update"],
-              ["reply", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "wss://relay.bob.com"],
-              ["thread", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"]
+              ["message-id", "3333333333333333333333333333333333333333333333333333333333333333"],
+              ["reply", "2222222222222222222222222222222222222222222222222222222222222222", "wss://relay.bob.com"],
+              ["thread", "1111111111111111111111111111111111111111111111111111111111111111", "wss://relay.alice.com"]
             ],
             "content": "Good question — we're targeting end of Q2."
           }
         ]
       },
       "expected_thread_tree": {
-        "root": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "root": "1111111111111111111111111111111111111111111111111111111111111111",
         "subject": "Project Update",
         "total_messages": 3,
         "tree": {
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+          "1111111111111111111111111111111111111111111111111111111111111111": {
             "parent": null,
-            "children": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+            "children": ["2222222222222222222222222222222222222222222222222222222222222222"],
             "depth": 0,
             "sender": "alice"
           },
-          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
-            "parent": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "children": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+          "2222222222222222222222222222222222222222222222222222222222222222": {
+            "parent": "1111111111111111111111111111111111111111111111111111111111111111",
+            "children": ["3333333333333333333333333333333333333333333333333333333333333333"],
             "depth": 1,
             "sender": "bob"
           },
-          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc": {
-            "parent": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "3333333333333333333333333333333333333333333333333333333333333333": {
+            "parent": "2222222222222222222222222222222222222222222222222222222222222222",
             "children": [],
             "depth": 2,
             "sender": "alice"
           }
         },
         "chronological_order": [
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          "1111111111111111111111111111111111111111111111111111111111111111",
+          "2222222222222222222222222222222222222222222222222222222222222222",
+          "3333333333333333333333333333333333333333333333333333333333333333"
         ]
       }
     },
     {
       "name": "branched thread",
-      "description": "Alice starts a thread. Both Bob and Charlie reply directly to Alice's root message, creating two branches.",
+      "description": "Alice starts a thread. Both Bob and Charlie reply directly to Alice's root message, creating two branches. Threading uses message-id values, not event IDs.",
       "input": {
         "events": [
           {
@@ -101,7 +104,8 @@
             "tags": [
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
               ["p", "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4", "", "cc"],
-              ["subject", "Team Decision"]
+              ["subject", "Team Decision"],
+              ["message-id", "4444444444444444444444444444444444444444444444444444444444444444"]
             ],
             "content": "Team, should we go with option A or B?"
           },
@@ -114,8 +118,9 @@
               ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
               ["p", "d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4", "", "cc"],
               ["subject", "Re: Team Decision"],
-              ["reply", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"],
-              ["thread", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"]
+              ["message-id", "5555555555555555555555555555555555555555555555555555555555555555"],
+              ["reply", "4444444444444444444444444444444444444444444444444444444444444444", "wss://relay.alice.com"],
+              ["thread", "4444444444444444444444444444444444444444444444444444444444444444", "wss://relay.alice.com"]
             ],
             "content": "I vote for option A — lower risk."
           },
@@ -128,51 +133,52 @@
               ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "cc"],
               ["subject", "Re: Team Decision"],
-              ["reply", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"],
-              ["thread", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"]
+              ["message-id", "6666666666666666666666666666666666666666666666666666666666666666"],
+              ["reply", "4444444444444444444444444444444444444444444444444444444444444444", "wss://relay.alice.com"],
+              ["thread", "4444444444444444444444444444444444444444444444444444444444444444", "wss://relay.alice.com"]
             ],
             "content": "I prefer option B — higher upside potential."
           }
         ]
       },
       "expected_thread_tree": {
-        "root": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "root": "4444444444444444444444444444444444444444444444444444444444444444",
         "subject": "Team Decision",
         "total_messages": 3,
         "tree": {
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+          "4444444444444444444444444444444444444444444444444444444444444444": {
             "parent": null,
             "children": [
-              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              "5555555555555555555555555555555555555555555555555555555555555555",
+              "6666666666666666666666666666666666666666666666666666666666666666"
             ],
             "depth": 0,
             "sender": "alice"
           },
-          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
-            "parent": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "5555555555555555555555555555555555555555555555555555555555555555": {
+            "parent": "4444444444444444444444444444444444444444444444444444444444444444",
             "children": [],
             "depth": 1,
             "sender": "bob"
           },
-          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd": {
-            "parent": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "6666666666666666666666666666666666666666666666666666666666666666": {
+            "parent": "4444444444444444444444444444444444444444444444444444444444444444",
             "children": [],
             "depth": 1,
             "sender": "charlie"
           }
         },
         "chronological_order": [
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          "4444444444444444444444444444444444444444444444444444444444444444",
+          "5555555555555555555555555555555555555555555555555555555555555555",
+          "6666666666666666666666666666666666666666666666666666666666666666"
         ],
         "note": "Both Bob and Charlie reply to the root, creating two sibling branches. Children array order follows created_at (Bob at 1711846800 before Charlie at 1711847000)."
       }
     },
     {
       "name": "deep thread (5 levels)",
-      "description": "A five-level deep thread: Alice -> Bob -> Alice -> Bob -> Alice. Tests that the thread tag always points to the original root while the reply tag tracks the immediate parent.",
+      "description": "A five-level deep thread: Alice -> Bob -> Alice -> Bob -> Alice. Tests that the thread tag always points to the original root message-id while the reply tag tracks the immediate parent's message-id.",
       "input": {
         "events": [
           {
@@ -182,7 +188,8 @@
             "created_at": 1711843200,
             "tags": [
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
-              ["subject", "Deep Thread"]
+              ["subject", "Deep Thread"],
+              ["message-id", "a100000000000000000000000000000000000000000000000000000000000000"]
             ],
             "content": "Level 0: Starting a deep conversation."
           },
@@ -194,8 +201,9 @@
             "tags": [
               ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
               ["subject", "Re: Deep Thread"],
-              ["reply", "1000000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"],
-              ["thread", "1000000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
+              ["message-id", "a200000000000000000000000000000000000000000000000000000000000000"],
+              ["reply", "a100000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"],
+              ["thread", "a100000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
             ],
             "content": "Level 1: Replying to root."
           },
@@ -207,8 +215,9 @@
             "tags": [
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
               ["subject", "Re: Deep Thread"],
-              ["reply", "2000000000000000000000000000000000000000000000000000000000000000", "wss://relay.bob.com"],
-              ["thread", "1000000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
+              ["message-id", "a300000000000000000000000000000000000000000000000000000000000000"],
+              ["reply", "a200000000000000000000000000000000000000000000000000000000000000", "wss://relay.bob.com"],
+              ["thread", "a100000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
             ],
             "content": "Level 2: Going deeper."
           },
@@ -220,8 +229,9 @@
             "tags": [
               ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
               ["subject", "Re: Deep Thread"],
-              ["reply", "3000000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"],
-              ["thread", "1000000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
+              ["message-id", "a400000000000000000000000000000000000000000000000000000000000000"],
+              ["reply", "a300000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"],
+              ["thread", "a100000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
             ],
             "content": "Level 3: Still going."
           },
@@ -233,56 +243,57 @@
             "tags": [
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
               ["subject", "Re: Deep Thread"],
-              ["reply", "4000000000000000000000000000000000000000000000000000000000000000", "wss://relay.bob.com"],
-              ["thread", "1000000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
+              ["message-id", "a500000000000000000000000000000000000000000000000000000000000000"],
+              ["reply", "a400000000000000000000000000000000000000000000000000000000000000", "wss://relay.bob.com"],
+              ["thread", "a100000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
             ],
             "content": "Level 4: Final reply in this thread."
           }
         ]
       },
       "expected_thread_tree": {
-        "root": "1000000000000000000000000000000000000000000000000000000000000000",
+        "root": "a100000000000000000000000000000000000000000000000000000000000000",
         "subject": "Deep Thread",
         "total_messages": 5,
         "max_depth": 4,
         "tree": {
-          "1000000000000000000000000000000000000000000000000000000000000000": {
+          "a100000000000000000000000000000000000000000000000000000000000000": {
             "parent": null,
-            "children": ["2000000000000000000000000000000000000000000000000000000000000000"],
+            "children": ["a200000000000000000000000000000000000000000000000000000000000000"],
             "depth": 0,
             "sender": "alice"
           },
-          "2000000000000000000000000000000000000000000000000000000000000000": {
-            "parent": "1000000000000000000000000000000000000000000000000000000000000000",
-            "children": ["3000000000000000000000000000000000000000000000000000000000000000"],
+          "a200000000000000000000000000000000000000000000000000000000000000": {
+            "parent": "a100000000000000000000000000000000000000000000000000000000000000",
+            "children": ["a300000000000000000000000000000000000000000000000000000000000000"],
             "depth": 1,
             "sender": "bob"
           },
-          "3000000000000000000000000000000000000000000000000000000000000000": {
-            "parent": "2000000000000000000000000000000000000000000000000000000000000000",
-            "children": ["4000000000000000000000000000000000000000000000000000000000000000"],
+          "a300000000000000000000000000000000000000000000000000000000000000": {
+            "parent": "a200000000000000000000000000000000000000000000000000000000000000",
+            "children": ["a400000000000000000000000000000000000000000000000000000000000000"],
             "depth": 2,
             "sender": "alice"
           },
-          "4000000000000000000000000000000000000000000000000000000000000000": {
-            "parent": "3000000000000000000000000000000000000000000000000000000000000000",
-            "children": ["5000000000000000000000000000000000000000000000000000000000000000"],
+          "a400000000000000000000000000000000000000000000000000000000000000": {
+            "parent": "a300000000000000000000000000000000000000000000000000000000000000",
+            "children": ["a500000000000000000000000000000000000000000000000000000000000000"],
             "depth": 3,
             "sender": "bob"
           },
-          "5000000000000000000000000000000000000000000000000000000000000000": {
-            "parent": "4000000000000000000000000000000000000000000000000000000000000000",
+          "a500000000000000000000000000000000000000000000000000000000000000": {
+            "parent": "a400000000000000000000000000000000000000000000000000000000000000",
             "children": [],
             "depth": 4,
             "sender": "alice"
           }
         },
-        "note": "Every reply's thread tag points to 1000...000 (the root), regardless of depth. The reply tag always points to the immediate parent. This is the key invariant: thread = root, reply = parent."
+        "note": "Every reply's thread tag points to a100...000 (the root message-id), regardless of depth. The reply tag always points to the immediate parent's message-id. This is the key invariant: thread = root message-id, reply = parent message-id."
       }
     },
     {
       "name": "thread with missing parent",
-      "description": "Bob has a reply (event C) that references a parent (event B) and root (event A), but event B has not been received yet. The client must handle this gracefully.",
+      "description": "Bob has a reply (event C) that references a parent message-id and root message-id, but the event with that parent message-id has not been received yet. The client must handle this gracefully.",
       "input": {
         "events": [
           {
@@ -292,7 +303,8 @@
             "created_at": 1711843200,
             "tags": [
               ["p", "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a", "", "to"],
-              ["subject", "Missing Parent Test"]
+              ["subject", "Missing Parent Test"],
+              ["message-id", "b100000000000000000000000000000000000000000000000000000000000000"]
             ],
             "content": "This is the root message."
           },
@@ -304,46 +316,47 @@
             "tags": [
               ["p", "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a6748", "", "to"],
               ["subject", "Re: Missing Parent Test"],
-              ["reply", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "wss://relay.bob.com"],
-              ["thread", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "wss://relay.alice.com"]
+              ["message-id", "b300000000000000000000000000000000000000000000000000000000000000"],
+              ["reply", "b200000000000000000000000000000000000000000000000000000000000000", "wss://relay.bob.com"],
+              ["thread", "b100000000000000000000000000000000000000000000000000000000000000", "wss://relay.alice.com"]
             ],
             "content": "Replying to Bob's message (which we don't have yet)."
           }
         ],
-        "missing_event_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "missing_message_id": "b200000000000000000000000000000000000000000000000000000000000000"
       },
       "expected_thread_tree": {
-        "root": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "root": "b100000000000000000000000000000000000000000000000000000000000000",
         "subject": "Missing Parent Test",
         "total_messages": 2,
         "total_known_messages": 2,
         "has_gaps": true,
         "tree": {
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+          "b100000000000000000000000000000000000000000000000000000000000000": {
             "parent": null,
             "children": [],
             "depth": 0,
             "sender": "alice",
-            "note": "Event B (Bob's reply to A) is missing, so A currently shows no children."
+            "note": "The message with message-id b200...000 (Bob's reply to root) is missing, so root currently shows no children."
           },
-          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc": {
-            "parent": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "b300000000000000000000000000000000000000000000000000000000000000": {
+            "parent": "b200000000000000000000000000000000000000000000000000000000000000",
             "parent_known": false,
             "children": [],
             "depth": null,
             "sender": "charlie",
-            "note": "Parent bbbb...bbbb is unknown. This message is an orphan until event B is received."
+            "note": "Parent message-id b200...000 is unknown. This message is an orphan until the missing message is received."
           }
         },
-        "orphans": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+        "orphans": ["b300000000000000000000000000000000000000000000000000000000000000"],
         "fetch_hints": [
           {
-            "event_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "message_id": "b200000000000000000000000000000000000000000000000000000000000000",
             "relay_hint": "wss://relay.bob.com",
-            "note": "Client should attempt to fetch this missing event from the hinted relay."
+            "note": "Client should attempt to fetch the missing message from the hinted relay."
           }
         ],
-        "resolution_behavior": "When event B is fetched later, the tree is re-built: A -> B -> C. Event C is no longer an orphan. Clients SHOULD attempt to fetch missing parents using relay hints from the reply tag."
+        "resolution_behavior": "When the message with message-id b200...000 is received, the tree is re-built: b100 -> b200 -> b300. The orphan b300 is resolved. Clients SHOULD attempt to fetch missing parents using relay hints from the reply tag."
       }
     }
   ]

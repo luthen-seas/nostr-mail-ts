@@ -14,12 +14,15 @@
 | E02 | Rumor has NO `id` or `sig` fields | Rumors are unsigned |
 | E03 | Recipient `p` tags include role marker | `["p", pubkey, relay, "to"/"cc"]` |
 | E04 | Subject tag is present | `["subject", "..."]` |
+| E04a | Missing subject tag handled gracefully | Absent subject treated as empty string, message not rejected |
 | E05 | Content-type tag omitted for text/plain | Default is text/plain |
 | E06 | Content-type tag present for non-default | `["content-type", "text/markdown"]` |
-| E07 | Reply tag references parent event | `["reply", eventId, relayHint]` |
-| E08 | Thread tag references root event | `["thread", eventId, relayHint]` |
+| E06a | Message-id tag is present and valid | `["message-id", <32-byte-hex>]` — CSPRNG generated |
+| E07 | Reply tag references parent message-id | `["reply", messageId, relayHint]` |
+| E08 | Thread tag references root message-id | `["thread", messageId, relayHint]` |
 | E09 | Attachment tags include all fields | `["attachment", hash, filename, mime, size]` |
 | E10 | Cashu token tag is present when postage required | `["cashu", serializedToken]` |
+| E11 | Same message-id across BCC and visible rumor variants | BCC and To/CC variants share identical message-id |
 
 ### Category 2: Encryption (MUST PASS)
 
@@ -57,7 +60,7 @@
 | M01 | Read state is a G-Set (append-only) | markRead → eventId added to reads set |
 | M02 | markRead is idempotent | markRead(same ID) twice → same state |
 | M03 | Read state cannot be reverted | No operation removes from reads set |
-| M04 | State serializes to kind 10099 tags | `["read", eventId]`, `["flagged", eventId]`, `["folder", name, eventId]` |
+| M04 | State serializes to kind 30099 tags with d-tag partition | `["d", "YYYY-MM"]`, `["read", messageId]`, `["flag", messageId, ...]`, `["folder", messageId, name]` |
 | M05 | State deserializes from tags | Parse tags → MailboxState matches |
 | M06 | State merge: G-Set union for reads | mergeStates: reads = union of both read sets |
 | M07 | State merge: both flags preserved | mergeStates: flags from both states included |
@@ -66,12 +69,12 @@
 
 | ID | Test | Requirement |
 |----|------|-------------|
-| T01 | Root message has no parent | No reply/thread tags → root node |
-| T02 | Reply links to parent | reply tag → child of that parent |
-| T03 | Thread tag always points to root | thread tag → same for all messages in conversation |
-| T04 | Thread tree is correctly built | buildThread produces valid parent-child relationships |
+| T01 | Root message has no parent | No reply/thread tags → root node; message-id used as thread key |
+| T02 | Reply links to parent via message-id | reply tag value matches parent's message-id |
+| T03 | Thread tag always points to root message-id | thread tag → same message-id for all messages in conversation |
+| T04 | Thread tree is correctly built | buildThread keyed by message-id produces valid parent-child relationships |
 | T05 | Chronological ordering within siblings | Children sorted by created_at |
-| T06 | Orphaned replies handled | Reply to unknown parent → treated as root |
+| T06 | Orphaned replies handled | Reply to unknown message-id → treated as root |
 
 ### Category 6: Interoperability
 

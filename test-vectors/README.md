@@ -10,7 +10,7 @@ Canonical test vectors for the NOSTR Mail protocol (kind 1400). Any conforming i
 | `gift-wrap.json` | NIP-59 seal + gift wrap encryption flow |
 | `thread.json` | Thread reconstruction from reply/thread tags |
 | `spam-tier.json` | Anti-spam tier evaluation |
-| `state.json` | Mailbox state (kind 10099) CRDT operations |
+| `state.json` | Mailbox state (kind 30099) CRDT operations |
 
 ## Test Keys
 
