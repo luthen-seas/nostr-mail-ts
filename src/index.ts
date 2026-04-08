@@ -48,9 +48,14 @@ export {
   getFolder,
   markDeleted,
   mergeStates,
+  stateToPayload,
+  payloadToState,
+  serializeState,
+  deserializeState,
   stateToTags,
   tagsToState,
 } from './state.js'
+export type { StatePayload } from './state.js'
 
 // ── High-level NostrMail class ──────────────────────────────────────────────
 

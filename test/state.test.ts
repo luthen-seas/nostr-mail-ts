@@ -9,9 +9,14 @@ import {
   getFolder,
   markDeleted,
   mergeStates,
+  stateToPayload,
+  payloadToState,
+  serializeState,
+  deserializeState,
   stateToTags,
   tagsToState,
 } from '../src/state.js'
+import type { StatePayload } from '../src/state.js'
 
 describe('mailbox state — reads (G-Set)', () => {
   it('marks a message as read', () => {
@@ -275,7 +280,102 @@ describe('mailbox state — merge (CRDT)', () => {
   })
 })
 
-describe('mailbox state — serialization', () => {
+describe('mailbox state — encrypted payload serialization', () => {
+  it('serializes to JSON payload and back (round-trip)', () => {
+    let state = createMailboxState()
+
+    state = markRead(state, 'msg1')
+    state = markRead(state, 'msg2')
+    state = toggleFlag(state, 'msg1', 'starred')
+    state = toggleFlag(state, 'msg1', 'important')
+    state = moveToFolder(state, 'msg2', 'archive')
+    state = markDeleted(state, 'msg3')
+
+    const payload = stateToPayload(state)
+    const restored = payloadToState(payload)
+
+    expect(isRead(restored, 'msg1')).toBe(true)
+    expect(isRead(restored, 'msg2')).toBe(true)
+    expect(isRead(restored, 'msg3')).toBe(false)
+    expect(getFlags(restored, 'msg1')).toContain('starred')
+    expect(getFlags(restored, 'msg1')).toContain('important')
+    expect(getFolder(restored, 'msg2')).toBe('archive')
+    expect(restored.deleted.has('msg3')).toBe(true)
+  })
+
+  it('payload has correct JSON structure', () => {
+    let state = createMailboxState()
+
+    state = markRead(state, 'ev1')
+    state = toggleFlag(state, 'ev2', 'starred')
+    state = moveToFolder(state, 'ev3', 'sent')
+    state = markDeleted(state, 'ev4')
+
+    const payload = stateToPayload(state)
+
+    expect(payload.read).toContain('ev1')
+    expect(payload.flag).toEqual({ ev2: ['starred'] })
+    expect(payload.folder).toEqual({ ev3: 'sent' })
+    expect(payload.deleted).toContain('ev4')
+  })
+
+  it('empty state produces correct empty payload', () => {
+    const state = createMailboxState()
+    const payload = stateToPayload(state)
+
+    expect(payload.read).toEqual([])
+    expect(payload.flag).toEqual({})
+    expect(payload.folder).toEqual({})
+    expect(payload.deleted).toEqual([])
+  })
+
+  it('serializeState returns d-tag only and JSON content', () => {
+    let state = createMailboxState()
+    state = markRead(state, 'msg1')
+
+    const { tags, content } = serializeState(state, '2026-04')
+
+    expect(tags).toHaveLength(1)
+    expect(tags[0]).toEqual(['d', '2026-04'])
+
+    const parsed = JSON.parse(content) as StatePayload
+    expect(parsed.read).toContain('msg1')
+    expect(parsed.flag).toEqual({})
+    expect(parsed.folder).toEqual({})
+    expect(parsed.deleted).toEqual([])
+  })
+
+  it('deserializeState round-trips with serializeState', () => {
+    let state = createMailboxState()
+    state = markRead(state, 'msg1')
+    state = markRead(state, 'msg2')
+    state = toggleFlag(state, 'msg1', 'starred')
+    state = moveToFolder(state, 'msg2', 'archive')
+    state = markDeleted(state, 'msg3')
+
+    const { content } = serializeState(state, '2026-04')
+    const restored = deserializeState(content)
+
+    expect(isRead(restored, 'msg1')).toBe(true)
+    expect(isRead(restored, 'msg2')).toBe(true)
+    expect(getFlags(restored, 'msg1')).toContain('starred')
+    expect(getFolder(restored, 'msg2')).toBe('archive')
+    expect(restored.deleted.has('msg3')).toBe(true)
+  })
+
+  it('payloadToState handles missing fields gracefully', () => {
+    // Simulate a payload with some fields missing
+    const partial = { read: ['msg1'] } as unknown as StatePayload
+    const state = payloadToState(partial)
+
+    expect(isRead(state, 'msg1')).toBe(true)
+    expect(state.flags.size).toBe(0)
+    expect(state.folders.size).toBe(0)
+    expect(state.deleted.size).toBe(0)
+  })
+})
+
+describe('mailbox state — legacy tag serialization', () => {
   it('serializes to tags and back (round-trip)', () => {
     let state = createMailboxState()
 

@@ -40,7 +40,7 @@ for await (const msg of mail.inbox()) {
 - Thread reconstruction
 - Mailbox state sync (G-Set reads, multi-device)
 - NIP-05 address resolution
-- 6-tier anti-spam evaluation
+- 3-tier anti-spam evaluation (contacts, Cashu postage, quarantine)
 
 ## Modules
 

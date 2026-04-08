@@ -1,8 +1,19 @@
 // ─── NOSTR Mail Protocol — Mailbox State ─────────────────────────────────────
 // G-Set reads (append-only), LWW flags/folders, serialization for kind 30099.
 // State is partitioned by month (d tag = YYYY-MM). IDs are message-id values.
+//
+// Kind 30099 events carry state as an encrypted JSON payload in the content
+// field (NIP-44 self-encrypted). The only visible tag is ["d", "YYYY-MM"].
 
 import type { MailboxState } from './types.js'
+
+/** JSON schema for the encrypted kind 30099 payload. */
+export interface StatePayload {
+  read: string[]
+  flag: Record<string, string[]>
+  folder: Record<string, string>
+  deleted: string[]
+}
 
 /**
  * Create an empty mailbox state.
@@ -186,17 +197,119 @@ export function mergeStates(a: MailboxState, b: MailboxState): MailboxState {
 }
 
 /**
- * Serialize mailbox state to tags for a kind 30099 event.
+ * Convert mailbox state to the JSON payload for kind 30099 content.
  *
- * Tag format:
- * - `["read", eventId]` for each read message
- * - `["flag", eventId, flag1, flag2, ...]` for flagged messages
- * - `["folder", eventId, folderName]` for folder assignments
- * - `["deleted", eventId]` for deleted messages
+ * The caller is responsible for NIP-44 encrypting the returned JSON string
+ * to the user's own public key before publishing.
+ *
+ * @param state - The mailbox state to serialize.
+ * @returns JSON payload object matching the StatePayload schema.
+ */
+export function stateToPayload(state: MailboxState): StatePayload {
+  const flag: Record<string, string[]> = {}
+  for (const [id, flagList] of state.flags) {
+    if (flagList.length > 0) {
+      flag[id] = flagList
+    }
+  }
+
+  const folder: Record<string, string> = {}
+  for (const [id, f] of state.folders) {
+    folder[id] = f
+  }
+
+  return {
+    read: [...state.reads],
+    flag,
+    folder,
+    deleted: [...state.deleted],
+  }
+}
+
+/**
+ * Parse a decrypted JSON payload into mailbox state.
+ *
+ * The caller is responsible for NIP-44 decrypting the kind 30099 content
+ * field before passing the plaintext JSON string here.
+ *
+ * @param payload - Parsed StatePayload object.
+ * @returns Reconstructed MailboxState.
+ */
+export function payloadToState(payload: StatePayload): MailboxState {
+  const state = createMailboxState()
+
+  if (Array.isArray(payload.read)) {
+    for (const id of payload.read) {
+      state.reads.add(id)
+    }
+  }
+
+  if (payload.flag && typeof payload.flag === 'object') {
+    for (const [id, flagList] of Object.entries(payload.flag)) {
+      if (Array.isArray(flagList) && flagList.length > 0) {
+        state.flags.set(id, flagList)
+      }
+    }
+  }
+
+  if (payload.folder && typeof payload.folder === 'object') {
+    for (const [id, folder] of Object.entries(payload.folder)) {
+      if (typeof folder === 'string') {
+        state.folders.set(id, folder)
+      }
+    }
+  }
+
+  if (Array.isArray(payload.deleted)) {
+    for (const id of payload.deleted) {
+      state.deleted.add(id)
+    }
+  }
+
+  return state
+}
+
+/**
+ * Serialize mailbox state for a kind 30099 event.
+ *
+ * Returns the tags array (containing only the d tag) and the JSON content
+ * string. The caller MUST NIP-44 encrypt the content string to the user's
+ * own public key before publishing.
  *
  * @param state - The mailbox state to serialize.
  * @param partition - Month partition in YYYY-MM format (e.g., '2026-04').
- * @returns Tags array for a kind 30099 addressable event.
+ * @returns Object with `tags` (string[][]) and `content` (JSON string).
+ */
+export function serializeState(
+  state: MailboxState,
+  partition: string,
+): { tags: string[][]; content: string } {
+  return {
+    tags: [['d', partition]],
+    content: JSON.stringify(stateToPayload(state)),
+  }
+}
+
+/**
+ * Deserialize a kind 30099 event's decrypted content into mailbox state.
+ *
+ * The caller MUST NIP-44 decrypt the content field before passing it here.
+ *
+ * @param content - Decrypted JSON string from the kind 30099 content field.
+ * @returns Reconstructed MailboxState.
+ */
+export function deserializeState(content: string): MailboxState {
+  const payload: StatePayload = JSON.parse(content)
+  return payloadToState(payload)
+}
+
+// ─── Legacy compatibility ───────────────────────────────────────────────────
+// These functions support the old plaintext-tags format for migration from
+// pre-encryption kind 30099 events.
+
+/**
+ * @deprecated Use serializeState() instead. This function produces plaintext
+ * tags that leak mailbox state to relay operators.
  */
 export function stateToTags(state: MailboxState, partition: string): string[][] {
   const tags: string[][] = [['d', partition]]
@@ -223,10 +336,8 @@ export function stateToTags(state: MailboxState, partition: string): string[][] 
 }
 
 /**
- * Deserialize a kind 30099 event's tags to mailbox state.
- *
- * @param tags - Tags from a kind 30099 event.
- * @returns Reconstructed MailboxState. The `d` tag is ignored (partition info).
+ * @deprecated Use deserializeState() instead. This function parses the old
+ * plaintext-tags format.
  */
 export function tagsToState(tags: string[][]): MailboxState {
   const state = createMailboxState()

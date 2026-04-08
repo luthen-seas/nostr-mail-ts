@@ -1,10 +1,19 @@
 {
-  "description": "Mailbox state (kind 30099) test vectors for NOSTR Mail. State uses a G-Set (grow-only set) for reads and LWW (last-writer-wins) for flags and folders. Partitioned by month via the d tag (YYYY-MM). This enables conflict-free multi-device sync.",
+  "description": "Mailbox state (kind 30099) test vectors for NOSTR Mail. State is stored as a JSON payload encrypted with NIP-44 to the user's own pubkey in the content field. Only the d-tag (YYYY-MM partition) is visible to relays. State uses a G-Set (grow-only set) for reads/deleted and LWW for flags/folders.",
   "crdt_model": {
     "reads": "G-Set (grow-only set). Once a message is marked read, it cannot be marked unread. Union of all read sets across devices.",
-    "flags": "LWW-Element-Set (last-writer-wins). The most recent created_at timestamp wins for flag state (flagged/unflagged).",
-    "folders": "LWW-Element-Set. The most recent created_at wins for folder assignment. A message can only be in one folder at a time.",
-    "deleted": "G-Set. Once marked deleted, cannot be undeleted via state merge (user can publish a new state without the deleted tag to reverse, but that is an explicit user action, not an automatic merge)."
+    "flags": "Union per message ID. All flags from all devices are preserved on merge.",
+    "folders": "LWW (last-writer-wins). The newer state's folder assignment wins for each message ID.",
+    "deleted": "G-Set. Once marked deleted, cannot be undeleted via state merge."
+  },
+  "payload_schema": {
+    "description": "The decrypted content field of a kind 30099 event is a JSON object with this structure:",
+    "fields": {
+      "read": "string[] — Array of message-id values for read messages (G-Set)",
+      "flag": "Record<string, string[]> — Map of message-id to flag name arrays",
+      "folder": "Record<string, string> — Map of message-id to folder name",
+      "deleted": "string[] — Array of message-id values for deleted messages (G-Set)"
+    }
   },
   "keys": {
     "bob": {
@@ -14,168 +23,154 @@
   "vectors": [
     {
       "name": "mark message as read",
-      "description": "Bob reads a message on his phone. The state event is updated to include the message ID in the read set with a timestamp.",
+      "description": "Bob reads a message on his phone. The state payload is updated to include the new message-id in the read array.",
       "input": {
-        "current_state": {
-          "kind": 30099,
-          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-          "created_at": 1711843200,
-          "tags": [
-            ["d", "2026-04"],
-            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"]
-          ],
-          "content": ""
+        "current_payload": {
+          "read": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          "flag": {},
+          "folder": {},
+          "deleted": []
         },
         "action": "mark_read",
-        "message_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "timestamp": 1711846800
+        "message_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
-      "expected": {
-        "kind": 30099,
-        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-        "created_at": 1711846800,
-        "tags": [
-          ["d", "2026-04"],
-          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+      "expected_payload": {
+        "read": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         ],
-        "content": "",
-        "note": "The new read tag is appended. Existing read tags are preserved (G-Set grows monotonically). The event created_at is updated to reflect when the state was modified."
+        "flag": {},
+        "folder": {},
+        "deleted": [],
+        "note": "The new message-id is appended to the read array. Existing entries are preserved (G-Set grows monotonically)."
+      },
+      "expected_event": {
+        "kind": 30099,
+        "tags": [["d", "2026-04"]],
+        "content": "<NIP-44 encrypted JSON of expected_payload>",
+        "note": "Only the d-tag is visible to relays. All state is inside the encrypted content."
       }
     },
     {
-      "name": "mark message as flagged",
-      "description": "Bob flags an important message. The flagged tag is added to the state event.",
+      "name": "flag a message",
+      "description": "Bob stars a message. The flag map is updated.",
       "input": {
-        "current_state": {
-          "kind": 30099,
-          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-          "created_at": 1711843200,
-          "tags": [
-            ["d", "2026-04"],
-            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"]
-          ],
-          "content": ""
+        "current_payload": {
+          "read": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          "flag": {},
+          "folder": {},
+          "deleted": []
         },
         "action": "flag",
         "message_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "timestamp": 1711846800
+        "flag_name": "starred"
       },
-      "expected": {
-        "kind": 30099,
-        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-        "created_at": 1711846800,
-        "tags": [
-          ["d", "2026-04"],
-          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-          ["flagged", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-        ],
-        "content": "",
-        "note": "Flagging adds a 'flagged' tag. Unflagging removes it in a subsequent state update (LWW — the latest state event wins)."
+      "expected_payload": {
+        "read": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+        "flag": {
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": ["starred"]
+        },
+        "folder": {},
+        "deleted": [],
+        "note": "The flag map gains an entry mapping the message-id to an array of flag names."
       }
     },
     {
       "name": "move message to folder",
       "description": "Bob moves a message from inbox to the 'Work' folder.",
       "input": {
-        "current_state": {
-          "kind": 30099,
-          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-          "created_at": 1711843200,
-          "tags": [
-            ["d", "2026-04"],
-            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+        "current_payload": {
+          "read": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
           ],
-          "content": ""
+          "flag": {},
+          "folder": {},
+          "deleted": []
         },
         "action": "move_to_folder",
         "message_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "folder": "Work",
-        "timestamp": 1711850400
+        "folder": "Work"
       },
-      "expected": {
-        "kind": 30099,
-        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-        "created_at": 1711850400,
-        "tags": [
-          ["d", "2026-04"],
-          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
-          ["folder", "Work", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+      "expected_payload": {
+        "read": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         ],
-        "content": "",
-        "note": "Messages without a folder tag are implicitly in the inbox. The folder tag format is ['folder', '<folder_name>', '<message_id>']. A message can only be in one folder; moving to a new folder replaces any existing folder tag for that message-id."
+        "flag": {},
+        "folder": {
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "Work"
+        },
+        "deleted": [],
+        "note": "Messages without a folder entry are implicitly in the inbox. A message can only be in one folder; moving to a new folder replaces the existing entry."
       }
     },
     {
-      "name": "merge two state events (multi-device conflict resolution)",
-      "description": "Bob reads message C on his phone (Device 1) and flags message A on his laptop (Device 2) at roughly the same time. Both devices publish state updates. The client must merge them.",
+      "name": "merge two state payloads (multi-device conflict resolution)",
+      "description": "Bob reads message C on his phone (Device 1) and stars message A on his laptop (Device 2) at roughly the same time. Both devices publish state updates. The client must merge them.",
       "input": {
-        "state_device_1": {
-          "kind": 30099,
-          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-          "created_at": 1711850400,
-          "tags": [
-            ["d", "2026-04"],
-            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
-            ["read", "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "1711850400"],
-            ["folder", "Work", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        "payload_device_1": {
+          "read": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
           ],
-          "content": "",
+          "flag": {},
+          "folder": {
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "Work"
+          },
+          "deleted": [],
           "note": "Device 1 added: read(C), folder(A -> Work)"
         },
-        "state_device_2": {
-          "kind": 30099,
-          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-          "created_at": 1711850500,
-          "tags": [
-            ["d", "2026-04"],
-            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
-            ["flagged", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
-            ["folder", "Personal", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        "payload_device_2": {
+          "read": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
           ],
-          "content": "",
-          "note": "Device 2 added: flagged(A), folder(A -> Personal). Device 2 has later created_at."
-        }
+          "flag": {
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": ["starred"]
+          },
+          "folder": {
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "Personal"
+          },
+          "deleted": [],
+          "note": "Device 2 added: starred(A), folder(A -> Personal). Device 2 has later created_at."
+        },
+        "device_2_is_newer": true
       },
-      "expected_merged": {
-        "kind": 30099,
-        "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-        "created_at": 1711850500,
-        "tags": [
-          ["d", "2026-04"],
-          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
-          ["read", "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "1711850400"],
-          ["flagged", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
-          ["folder", "Personal", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+      "expected_merged_payload": {
+        "read": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         ],
-        "content": ""
+        "flag": {
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": ["starred"]
+        },
+        "folder": {
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "Personal"
+        },
+        "deleted": []
       },
       "merge_rules_applied": {
-        "reads": "G-Set union: {A, B} union {A, B, C} = {A, B, C}. Read C from Device 1 is preserved even though Device 2 didn't have it.",
-        "flags": "LWW: Device 2 (created_at 1711850500) is newer than Device 1 (1711850400), so flagged(A) from Device 2 is accepted.",
+        "reads": "G-Set union: {A, B} union {A, B, C} = {A, B, C}. Read C from Device 1 is preserved.",
+        "flags": "Union: starred(A) from Device 2 is preserved.",
         "folders": "LWW: Device 2 is newer, so folder(A -> Personal) wins over folder(A -> Work).",
-        "note": "The merged state takes the higher created_at as the event timestamp. Reads use G-Set union (always grow). Flags and folders use LWW (latest created_at wins). This is a CRDT merge — both devices can independently produce the same merged result."
+        "note": "Reads and deleted use G-Set union (always grow). Flags use set union per message. Folders use LWW (newer device wins)."
       }
     },
     {
       "name": "attempt to unread a message (no-op for G-Set)",
-      "description": "Bob accidentally reads a message and wants to mark it as unread. Because reads use a G-Set (grow-only), the read entry cannot be removed through merge. The client must handle this as a UI-level override.",
+      "description": "Bob accidentally reads a message and wants to mark it as unread. Because reads use a G-Set, the read entry cannot be removed through merge.",
       "input": {
-        "current_state": {
-          "kind": 30099,
-          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-          "created_at": 1711850400,
-          "tags": [
-            ["d", "2026-04"],
-            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+        "current_payload": {
+          "read": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
           ],
-          "content": ""
+          "flag": {},
+          "folder": {},
+          "deleted": []
         },
         "action": "mark_unread",
         "message_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -183,27 +178,19 @@
       "expected_merge_behavior": {
         "state_unchanged_by_merge": true,
         "reads_after_merge": [
-          ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-          ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"]
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         ],
-        "note": "G-Set merge will always re-add the read entry because the other device's state still contains it. The read for bbbb...bbbb persists across any merge operation."
+        "note": "G-Set merge will always re-add the read entry because the other device's state still contains it."
       },
       "workaround": {
-        "description": "To support 'mark as unread' as a user-facing feature, implementations can use an 'unread' LWW tag that overrides the G-Set read status at the UI level.",
-        "explicit_unread_state": {
-          "kind": 30099,
-          "pubkey": "98b30d5bfd1e2e751d7a57e7a58e67e15b3f2e0a90f9f7e8e40f7f6e5d4c3b2a",
-          "created_at": 1711854000,
-          "tags": [
-            ["d", "2026-04"],
-            ["read", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "1711840000"],
-            ["read", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711846800"],
-            ["unread", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1711854000"]
-          ],
-          "content": ""
+        "description": "To support 'mark as unread' as a user-facing feature, use a 'needs-attention' flag that overrides the read state at the UI level.",
+        "flag_approach": {
+          "flag": {
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": ["needs-attention"]
+          }
         },
-        "ui_interpretation": "If unread timestamp > read timestamp for the same message-id, display as unread. The G-Set still contains the read entry (for CRDT correctness), but the LWW unread tag overrides the display state.",
-        "note": "This is a pragmatic compromise: the G-Set guarantees convergence across devices for the 'has been seen' signal, while the LWW unread tag provides the UI-level 'mark as unread' feature that users expect from email."
+        "ui_interpretation": "If a message has 'needs-attention' flag, display as unread even though it is in the G-Set read array."
       }
     }
   ]
