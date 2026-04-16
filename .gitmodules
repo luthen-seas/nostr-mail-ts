@@ -1,0 +1,3 @@
+[submodule "external/nostr-mail-nip"]
+	path = external/nostr-mail-nip
+	url = https://github.com/luthen-seas/nostr-mail-nip.git
