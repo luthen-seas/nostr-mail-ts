@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest'
 import * as nip44 from 'nostr-tools/nip44'
 import { hexToBytes, bytesToHex } from 'nostr-tools/utils'
 import { readFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 
-const vectors = JSON.parse(readFileSync('/tmp/nip44-vectors.json', 'utf-8'))
+const here = dirname(fileURLToPath(import.meta.url))
+const vectors = JSON.parse(readFileSync(join(here, 'fixtures', 'nip44.vectors.json'), 'utf-8'))
 
 describe('NIP-44 official test vector compatibility', () => {
   describe('conversation key derivation', () => {

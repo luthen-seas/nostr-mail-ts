@@ -22,9 +22,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Fetch NIP-44 official test vectors
-        run: curl -fsSL https://raw.githubusercontent.com/paulmillr/nip44/main/nip44.vectors.json -o /tmp/nip44-vectors.json
-
       - name: Build
         run: npm run build
 
