@@ -1,6 +1,7 @@
 // ─── NOSTR Mail Protocol — Anti-Spam Tier Evaluation ────────────────────────
 // Implements the 3-tier trust model: contacts -> Cashu P2PK -> quarantine/reject.
 
+import { verifyPostageStructure } from './cashu.js'
 import type { CashuPostage, SpamPolicy, SpamTier } from './types.js'
 
 /** Default spam policy values. */
@@ -28,13 +29,22 @@ export function createSpamPolicy(overrides?: Partial<SpamPolicy>): SpamPolicy {
  * - **Tier 0**: Sender is in the recipient's contact list (kind 3 follows).
  *   Always delivered to inbox.
  * - **Tier 1**: The message includes a valid Cashu P2PK token meeting
- *   the minimum amount. Delivered to inbox.
+ *   the minimum amount and (when `recipientPubkey` is supplied) is
+ *   structurally locked to the recipient. Delivered to inbox.
  * - **Tier 2**: None of the above. Quarantined or rejected per policy.
+ *
+ * Per AMEND-006 the structural P2PK check (`verifyPostageStructure`) runs
+ * synchronously here. The async mint swap (`verifyPostage`) is the caller's
+ * responsibility once the message is admitted to the inbox.
  *
  * @param senderPubkey - The sender's hex public key (from the seal).
  * @param contactList - Set of pubkeys the recipient follows (kind 3).
  * @param cashuPostage - Cashu postage token from the rumor, if present.
  * @param policy - The recipient's spam policy (kind 10097).
+ * @param recipientPubkey - The receiver's hex pubkey, used to verify P2PK
+ *   lock target. When omitted, structural validation is skipped — callers
+ *   building unit tests against synthetic vectors may pass `undefined`,
+ *   but production receive paths MUST supply it.
  * @returns The tier classification with reason and recommended action.
  */
 export function evaluateSpamTier(
@@ -42,6 +52,7 @@ export function evaluateSpamTier(
   contactList: Set<string>,
   cashuPostage: CashuPostage | undefined,
   policy: SpamPolicy,
+  recipientPubkey?: string,
 ): SpamTier {
   // ── Tier 0: Sender is a contact ──────────────────────────────────────
   if (policy.contactsFree && contactList.has(senderPubkey)) {
@@ -53,40 +64,51 @@ export function evaluateSpamTier(
   }
 
   // ── Tier 1: Valid Cashu P2PK postage ─────────────────────────────────
+  // F-SPAM-01: the authoritative amount and mint come from the DECODED,
+  // P2PK-verified token — never from the advisory cashu-amount / cashu-mint
+  // tags, which are attacker-controlled and sit outside the token.
   if (cashuPostage) {
-    // Check P2PK requirement
-    if (!cashuPostage.p2pk) {
+    if (!recipientPubkey) {
+      // Without the recipient pubkey we cannot verify the P2PK lock target,
+      // so postage can never qualify for Tier 1 (production receive paths
+      // MUST supply recipientPubkey).
       return {
         tier: 2,
-        reason: 'Cashu token is not P2PK locked (P2PK is required)',
+        reason: 'Cashu postage present but recipient pubkey unavailable for P2PK verification',
         action: policy.unknownAction,
       }
     }
 
-    // Check minimum amount
-    if (cashuPostage.amount < policy.cashuMinSats) {
+    const result = verifyPostageStructure(cashuPostage, recipientPubkey)
+    if (!result.ok) {
       return {
         tier: 2,
-        reason: `Cashu postage ${cashuPostage.amount} sats below minimum ${policy.cashuMinSats} sats`,
+        reason: `Cashu structural validation failed: ${result.error}`,
         action: policy.unknownAction,
       }
     }
 
-    // Check mint is accepted (if acceptedMints is non-empty)
-    if (
-      policy.acceptedMints.length > 0 &&
-      !policy.acceptedMints.includes(cashuPostage.mint)
-    ) {
+    // Verified token value, not the advisory tag.
+    if (result.amount < policy.cashuMinSats) {
       return {
         tier: 2,
-        reason: `Cashu mint ${cashuPostage.mint} is not in accepted mints list`,
+        reason: `Cashu postage ${result.amount} sats below minimum ${policy.cashuMinSats} sats (verified token value)`,
+        action: policy.unknownAction,
+      }
+    }
+
+    // Allowlist checked against the VERIFIED mint, not the tag.
+    if (policy.acceptedMints.length > 0 && !policy.acceptedMints.includes(result.mint)) {
+      return {
+        tier: 2,
+        reason: `Cashu mint ${result.mint} is not in accepted mints list`,
         action: policy.unknownAction,
       }
     }
 
     return {
       tier: 1,
-      reason: `Valid Cashu P2PK postage: ${cashuPostage.amount} sats`,
+      reason: `Valid Cashu P2PK postage: ${result.amount} sats`,
       action: 'inbox',
     }
   }
@@ -122,9 +144,13 @@ export function parsePolicyTags(tags: string[][]): SpamPolicy {
       case 'contacts-free':
         policy.contactsFree = value !== 'false'
         break
-      case 'cashu-min-sats':
-        policy.cashuMinSats = parseInt(value ?? '0', 10)
+      case 'cashu-min-sats': {
+        // F-SPAM-02: NaN/negative would poison the `amount < min` comparison
+        // (x < NaN is always false → the floor would be disabled). Clamp.
+        const parsed = parseInt(value ?? '', 10)
+        policy.cashuMinSats = Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_SPAM_POLICY.cashuMinSats
         break
+      }
       case 'accepted-mint':
         if (value) {
           policy.acceptedMints.push(value)

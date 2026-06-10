@@ -12,13 +12,31 @@ function getConversationKey(privkey: Uint8Array, pubkey: string): Uint8Array {
   return nip44.v2.utils.getConversationKey(privkey, pubkey)
 }
 
+/**
+ * Thrown by {@link unwrapMail} when the seal's Schnorr signature is invalid.
+ *
+ * Per NIP-59, the seal MUST carry a valid Schnorr signature from the sender's
+ * pubkey. NIP-44 v2's HMAC binding already provides authentication of the
+ * conversation-key holder, so an unverifiable seal is most often a bug rather
+ * than an active impersonation attack — but receivers MUST still reject it
+ * for spec compliance and defense in depth.
+ */
+export class SealSignatureInvalidError extends Error {
+  constructor(senderPubkey: string) {
+    super(`Seal Schnorr signature invalid (claimed sender: ${senderPubkey})`)
+    this.name = 'SealSignatureInvalidError'
+  }
+}
+
 /** The verified result of unwrapping a gift-wrapped mail event. */
 export interface UnwrapResult {
   /** The decrypted kind 1400 mail rumor. */
   rumor: MailMessage
   /** The sender's hex public key (from the seal layer). */
   senderPubkey: string
-  /** Whether the seal signature was cryptographically verified. */
+  /** Whether the seal signature was cryptographically verified.
+   *  After this version of the lib always throws on bad sigs, this is `true`
+   *  for any returned UnwrapResult. The field remains for API compatibility. */
   verified: boolean
 }
 
@@ -55,6 +73,8 @@ export async function unwrapMail(
   }
 
   // ── Layer 1: Decrypt the gift wrap → seal ─────────────────────────────
+  // F-ZERO-TS-01: zero conversation keys in a finally so they are wiped even
+  // when decryption / parsing throws midway.
   const wrapConvKey = getConversationKey(recipientPrivkey, wrapEvent.pubkey)
 
   let sealJson: string
@@ -64,6 +84,8 @@ export async function unwrapMail(
     throw new Error(
       `Failed to decrypt gift wrap: ${err instanceof Error ? err.message : 'unknown error'}`,
     )
+  } finally {
+    wrapConvKey.fill(0)
   }
 
   let seal: {
@@ -89,6 +111,9 @@ export async function unwrapMail(
 
   // ── Verify seal signature (sender authentication) ─────────────────────
   const verified = verifyEvent(seal)
+  if (!verified) {
+    throw new SealSignatureInvalidError(seal.pubkey)
+  }
 
   // ── Layer 2: Decrypt the seal → rumor ─────────────────────────────────
   const sealConvKey = getConversationKey(recipientPrivkey, seal.pubkey)
@@ -100,6 +125,8 @@ export async function unwrapMail(
     throw new Error(
       `Failed to decrypt seal: ${err instanceof Error ? err.message : 'unknown error'}`,
     )
+  } finally {
+    sealConvKey.fill(0)
   }
 
   let rumor: MailMessage
@@ -121,6 +148,7 @@ export async function unwrapMail(
     )
   }
 
+  // (Conversation keys are zeroed in the finally blocks above — DEC-014.)
   return {
     rumor,
     senderPubkey: seal.pubkey,

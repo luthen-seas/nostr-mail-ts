@@ -1,7 +1,7 @@
 // ─── NOSTR Mail Protocol — Kind 1400 Event Creation & Parsing ─────────────────
 // Creates and parses the inner rumor layer of a NOSTR Mail message.
 
-import type { MailMessage, MailAttachment, CashuPostage } from './types.js'
+import type { MailMessage, MailAttachment, MailInlineImage, CashuPostage } from './types.js'
 
 /** Parameters for creating a kind 1400 mail rumor. */
 export interface CreateMailRumorParams {
@@ -19,6 +19,8 @@ export interface CreateMailRumorParams {
   contentType?: 'text/plain' | 'text/markdown' | 'text/html'
   /** File attachments (Blossom references). */
   attachments?: MailAttachment[]
+  /** Inline images referenced from the body via `cid:` (parity with Go). */
+  inlineImages?: MailInlineImage[]
   /** Cashu postage for anti-spam (P2PK required). */
   cashuPostage?: CashuPostage
   /** Event ID of the message being replied to. */
@@ -95,12 +97,26 @@ export function createMailRumor(params: CreateMailRumorParams): MailMessage {
         tags.push(['attachment-key', att.hash, att.encryptionKey])
       }
     }
+  }
 
-    // Deduplicated Blossom server URLs
-    const blossomUrls = new Set(params.attachments.flatMap(a => a.blossomUrls))
-    if (blossomUrls.size > 0) {
-      tags.push(['blossom', ...blossomUrls])
+  // Inline image tags (parity with Go): ["inline", hash, contentId] plus an
+  // attachment-key for the image's symmetric key.
+  if (params.inlineImages && params.inlineImages.length > 0) {
+    for (const img of params.inlineImages) {
+      tags.push(['inline', img.hash, img.contentId])
+      if (img.encryptionKey) {
+        tags.push(['attachment-key', img.hash, img.encryptionKey])
+      }
     }
+  }
+
+  // Deduplicated Blossom server URLs across attachments + inline images.
+  const blossomUrls = new Set<string>([
+    ...(params.attachments ?? []).flatMap(a => a.blossomUrls ?? []),
+    ...(params.inlineImages ?? []).flatMap(i => i.blossomUrls ?? []),
+  ])
+  if (blossomUrls.size > 0) {
+    tags.push(['blossom', ...blossomUrls])
   }
 
   // Cashu postage (P2PK locked to recipient)
@@ -178,12 +194,18 @@ export function parseMailRumor(rumor: MailMessage): ParsedMailRumor {
   const cashuTag = rumor.tags.find(t => t[0] === 'cashu')
   const cashuMint = rumor.tags.find(t => t[0] === 'cashu-mint')
   const cashuAmount = rumor.tags.find(t => t[0] === 'cashu-amount')
+  // The `p2pk` flag here is advisory only — we cannot trust the wire data.
+  // The authoritative check is verifyPostageStructure() in cashu.ts, which
+  // decodes the token and matches its NUT-11 lock against the recipient's
+  // pubkey. The spam tier evaluator runs that check before classifying as
+  // Tier 1; older callers may still consult this flag, hence we leave it
+  // as a permissive default with the security comment.
   const cashuPostage: CashuPostage | undefined = cashuTag
     ? {
         token: cashuTag[1] ?? '',
         mint: cashuMint?.[1] ?? '',
         amount: parseInt(cashuAmount?.[1] ?? '0', 10),
-        p2pk: true, // Always P2PK locked
+        p2pk: true,
       }
     : undefined
 

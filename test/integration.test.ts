@@ -5,6 +5,7 @@ import { wrapMail } from '../src/wrap.js'
 import { unwrapMail } from '../src/unwrap.js'
 import { buildThread, flattenThread } from '../src/thread.js'
 import { evaluateSpamTier, DEFAULT_SPAM_POLICY } from '../src/spam.js'
+import { p2pkTokenString } from './helpers/cashu-token.js'
 import {
   createMailboxState,
   markRead,
@@ -210,7 +211,7 @@ describe('end-to-end: send and receive mail', () => {
       subject: 'Business inquiry',
       body: 'I would like to discuss a partnership.',
       cashuPostage: {
-        token: 'cashuAeyJwcm9vZnMiOltdLCJtaW50IjoiaHR0cHM6Ly9taW50LmV4YW1wbGUuY29tIn0=',
+        token: p2pkTokenString('https://mint.example.com', [42], BOB_PUBKEY),
         mint: 'https://mint.example.com',
         amount: 42,
         p2pk: true,
@@ -231,8 +232,8 @@ describe('end-to-end: send and receive mail', () => {
 
     // 4. Evaluate spam -- Alice is unknown but paid with Cashu
     const contacts = new Set<string>() // Alice is NOT a contact
-    const tier = evaluateSpamTier(ALICE_PUBKEY, contacts, parsed.cashuPostage, DEFAULT_SPAM_POLICY)
-    expect(tier.tier).toBe(1) // Cashu tier
+    const tier = evaluateSpamTier(ALICE_PUBKEY, contacts, parsed.cashuPostage, DEFAULT_SPAM_POLICY, BOB_PUBKEY)
+    expect(tier.tier).toBe(1) // Cashu tier (verified P2PK token locked to Bob)
     expect(tier.action).toBe('inbox')
 
     // 5. Bob reads the message and stars it

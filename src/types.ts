@@ -69,6 +69,18 @@ export interface MailAttachment {
   blossomUrls: string[]
 }
 
+/** An inline image referenced from the body via a `cid:` URI (parity with Go). */
+export interface MailInlineImage {
+  /** Blossom SHA-256 hash of the (encrypted) image. */
+  hash: string
+  /** Content-ID referenced by `cid:<contentId>` in the body. */
+  contentId: string
+  /** NIP-44 symmetric encryption key (hex). */
+  encryptionKey?: string
+  /** Blossom server URLs where the image can be retrieved. */
+  blossomUrls?: string[]
+}
+
 /** Cashu postage token for anti-spam (always NUT-11 P2PK locked). */
 export interface CashuPostage {
   /** Serialized NUT-00 Cashu token. */
@@ -113,6 +125,14 @@ export interface MailboxState {
   folders: Map<string, string>
   /** Event IDs marked as deleted. */
   deleted: Set<string>
+  /**
+   * `created_at` of the source kind-30099 event this state was loaded from
+   * (0 for a fresh local state). Used as the per-key LWW clock for folder
+   * conflict resolution (DEC-020). See `mergeStates`.
+   */
+  createdAt?: number
+  /** `id` of the source kind-30099 event; lexicographic tiebreak for equal createdAt. */
+  eventId?: string
 }
 
 /** Options for sending mail via the high-level API. */
