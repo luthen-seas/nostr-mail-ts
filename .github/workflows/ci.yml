@@ -30,3 +30,12 @@ jobs:
 
       - name: Conformance — verify test-vectors submodule is initialized
         run: test -f external/nostr-mail-nip/test-vectors/mail-event.json
+
+      - name: Conformance — verify vendored vectors match canonical nostr-mail-nip
+        run: |
+          git clone --depth 1 https://github.com/luthen-seas/nostr-mail-nip.git /tmp/canonical-nip
+          if ! diff -r /tmp/canonical-nip/test-vectors external/nostr-mail-nip/test-vectors; then
+            echo "::error::Vendored test-vectors have drifted from canonical nostr-mail-nip main. Bump the external/nostr-mail-nip submodule (F-DRIFT-01)."
+            exit 1
+          fi
+          echo "Vendored test-vectors match canonical nostr-mail-nip main."
