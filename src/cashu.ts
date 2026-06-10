@@ -96,6 +96,77 @@ export async function createPostageToken(
 }
 
 /**
+ * Synchronous structural P2PK validation for a received Cashu postage.
+ *
+ * Per AMEND-006 Phase 1: this is a fast structural check that does NOT touch
+ * the mint. It decodes the token, asserts every proof's secret is a NUT-11
+ * P2PK condition, and asserts the lock data equals `0x02 || ourPubkey`.
+ *
+ * This is the gate that the spam-tier evaluator uses before classifying a
+ * message as Tier 1. Phase-2 mint swap (verifyPostage) is still required
+ * to actually redeem the token but is asynchronous and may be deferred
+ * past tier classification.
+ *
+ * @param postage - CashuPostage parsed from the rumor (untrusted).
+ * @param ourPubkey - Our NOSTR hex pubkey (x-only, 32 bytes).
+ * @returns `{ ok: true }` if the token is structurally valid P2PK to us,
+ *          `{ ok: false, error: "..." }` otherwise.
+ */
+export function verifyPostageStructure(
+  postage: CashuPostage,
+  ourPubkey: string,
+): { ok: true; amount: number; mint: string } | { ok: false; error: string } {
+  let decoded: Token
+  try {
+    decoded = getDecodedToken(postage.token)
+  } catch (err) {
+    return { ok: false, error: `decode: ${err instanceof Error ? err.message : 'invalid'}` }
+  }
+  if (!decoded.proofs || decoded.proofs.length === 0) {
+    return { ok: false, error: 'token has no proofs' }
+  }
+  if (!decoded.mint) {
+    return { ok: false, error: 'token has no mint URL' }
+  }
+  let want: string
+  try {
+    want = toCompressedSec(ourPubkey)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'invalid recipient pubkey' }
+  }
+  let amount = 0
+  for (const proof of decoded.proofs) {
+    const secret = proof.secret
+    if (typeof secret !== 'string') {
+      return { ok: false, error: 'proof secret is not a string (bearer token rejected)' }
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(secret)
+    } catch {
+      return { ok: false, error: 'proof secret is not JSON (bearer token rejected)' }
+    }
+    if (!Array.isArray(parsed) || parsed.length < 2) {
+      return { ok: false, error: 'proof secret is not a NUT-10 tuple' }
+    }
+    if (parsed[0] !== 'P2PK') {
+      return { ok: false, error: `proof secret kind is ${String(parsed[0])}, want P2PK` }
+    }
+    const body = parsed[1] as { data?: unknown }
+    const data = typeof body?.data === 'string' ? body.data.toLowerCase() : ''
+    if (data !== want) {
+      return { ok: false, error: 'P2PK lock target does not match recipient pubkey' }
+    }
+    // F-SPAM-01: sum the VERIFIED proof amounts. This — not the advisory
+    // cashu-amount tag — is the authoritative postage value.
+    if (typeof proof.amount === 'number' && Number.isFinite(proof.amount) && proof.amount >= 0) {
+      amount += proof.amount
+    }
+  }
+  return { ok: true, amount, mint: decoded.mint }
+}
+
+/**
  * Verify and redeem Cashu postage tokens from a received message.
  * Checks: token is valid, P2PK locked to us, amount meets threshold.
  *
@@ -158,37 +229,29 @@ export async function verifyPostage(
   }
 
   // ── Step 3: Check P2PK spending condition ─────────────────────────────
+  // F-CASHU-TS-01: fail CLOSED. Every proof MUST be a NUT-11 P2PK tuple locked
+  // to us. A secret that is missing, not a string, not JSON, not a P2PK array,
+  // or locked to a different key is rejected — never silently accepted (which
+  // previously re-opened the bearer-token / double-spend window).
   const ourCompressedPubkey = toCompressedSec(ourPubkey)
 
   for (const proof of proofs) {
     const secret = proof.secret
-    // NUT-11 P2PK secrets are JSON arrays: ["P2PK", { "nonce": ..., "data": pubkey, ... }]
-    if (typeof secret === 'string') {
-      try {
-        const parsed = JSON.parse(secret) as [string, { data?: string }]
-        if (
-          Array.isArray(parsed) &&
-          parsed[0] === 'P2PK' &&
-          parsed[1]?.data
-        ) {
-          if (parsed[1].data !== ourCompressedPubkey) {
-            return {
-              valid: false,
-              amount: 0,
-              redeemed: false,
-              error: 'P2PK condition is not locked to our pubkey',
-            }
-          }
-        }
-      } catch {
-        // If secret is not JSON, it's not a P2PK token
-        return {
-          valid: false,
-          amount: 0,
-          redeemed: false,
-          error: 'Proof secret is not a valid P2PK condition',
-        }
-      }
+    if (typeof secret !== 'string') {
+      return { valid: false, amount: 0, redeemed: false, error: 'Proof secret is not a string (bearer token rejected)' }
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(secret)
+    } catch {
+      return { valid: false, amount: 0, redeemed: false, error: 'Proof secret is not JSON (bearer token rejected)' }
+    }
+    if (!Array.isArray(parsed) || parsed.length < 2 || parsed[0] !== 'P2PK') {
+      return { valid: false, amount: 0, redeemed: false, error: 'Proof secret is not a NUT-11 P2PK condition' }
+    }
+    const data = (parsed[1] as { data?: unknown })?.data
+    if (typeof data !== 'string' || data.toLowerCase() !== ourCompressedPubkey) {
+      return { valid: false, amount: 0, redeemed: false, error: 'P2PK condition is not locked to our pubkey' }
     }
   }
 

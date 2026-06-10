@@ -52,6 +52,9 @@ export {
   payloadToState,
   serializeState,
   deserializeState,
+  serializeStateEncrypted,
+  deserializeStateEncrypted,
+  partitionFor,
   stateToTags,
   tagsToState,
 } from './state.js'
@@ -69,7 +72,7 @@ import type {
   Signer,
 } from './types.js'
 import { createMailRumor, parseMailRumor } from './mail.js'
-import { wrapMailForRecipients } from './wrap.js'
+import { wrapMail } from './wrap.js'
 import { tryUnwrapMail } from './unwrap.js'
 import { evaluateSpamTier, createSpamPolicy } from './spam.js'
 import { buildThread, flattenThread, groupByThread } from './thread.js'
@@ -140,9 +143,15 @@ export class NostrMail {
   /**
    * Compose and wrap a mail message for all recipients.
    *
-   * Creates a kind 1400 rumor, then gift-wraps it individually for each
-   * recipient (To, CC, BCC) plus a self-copy. Returns the wrapped events
-   * ready for relay publication.
+   * Per DEC-012 and the BCC privacy guarantee, this produces TWO rumor
+   * variants when any BCC recipient is present:
+   *   - A "visible" rumor with only To/CC `p` tags. Wrapped for each To/CC
+   *     recipient and a sender self-copy.
+   *   - A per-BCC rumor with the visible To/CC `p` tags PLUS a single BCC
+   *     `p` tag for that one BCC recipient. Wrapped only for that recipient.
+   *
+   * All variants share the SAME 32-byte CSPRNG `message-id` value so that
+   * threading, dedup, and read-state converge across recipients.
    *
    * @param options - Mail composition options.
    * @returns Array of wrapped events with target relay URLs.
@@ -154,22 +163,27 @@ export class NostrMail {
 
     const senderPubkey = getPublicKey(this.privkey)
 
-    // Normalize recipients to arrays
+    // Normalize recipients to arrays.
     const toList = normalizeRecipients(options.to)
     const ccList = normalizeRecipients(options.cc)
     const bccList = normalizeRecipients(options.bcc)
 
-    // Build recipient list with roles
-    const recipients = [
+    // Generate one message-id shared across every variant (DEC-012).
+    const messageId = Array.from(
+      crypto.getRandomValues(new Uint8Array(32)),
+      b => b.toString(16).padStart(2, '0'),
+    ).join('')
+
+    const visibleRecipients = [
       ...toList.map(pubkey => ({ pubkey, role: 'to' as const })),
       ...ccList.map(pubkey => ({ pubkey, role: 'cc' as const })),
-      ...bccList.map(pubkey => ({ pubkey, role: 'bcc' as const })),
     ]
 
-    // Create the kind 1400 rumor
-    const rumor = createMailRumor({
+    // Visible rumor: To/CC `p` tags only. Used for To/CC wraps + self-copy.
+    const visibleRumor = createMailRumor({
       senderPubkey,
-      recipients,
+      messageId,
+      recipients: visibleRecipients,
       subject: options.subject,
       body: options.body,
       contentType: options.contentType,
@@ -177,14 +191,46 @@ export class NostrMail {
       threadId: options.threadId,
     })
 
-    // Wrap for all recipients + self-copy
-    const allRecipientPubkeys = [
-      ...toList,
-      ...ccList,
-      ...bccList,
-    ].map(pubkey => ({ pubkey, relays: this.relays }))
+    const results: Array<{ wrap: unknown; relays: string[] }> = []
 
-    return wrapMailForRecipients(rumor, this.privkey, allRecipientPubkeys)
+    // Wrap the visible rumor for each To/CC recipient.
+    for (const pubkey of [...toList, ...ccList]) {
+      const wrap = await wrapMail(visibleRumor, this.privkey, pubkey)
+      results.push({ wrap, relays: this.relays })
+    }
+
+    // Sender self-copy uses the visible rumor (sender already knows the
+    // BCC list, so they can reconstruct it from their outbox by fanning
+    // separate per-BCC variants — see below).
+    if (
+      ![...toList, ...ccList].includes(senderPubkey) &&
+      !bccList.includes(senderPubkey)
+    ) {
+      const selfWrap = await wrapMail(visibleRumor, this.privkey, senderPubkey)
+      results.push({ wrap: selfWrap, relays: this.relays })
+    }
+
+    // Per-BCC variants: each BCC sees the visible recipient list plus
+    // their own `p` tag, but does NOT see other BCCs.
+    for (const bccPubkey of bccList) {
+      const bccRumor = createMailRumor({
+        senderPubkey,
+        messageId,
+        recipients: [
+          ...visibleRecipients,
+          { pubkey: bccPubkey, role: 'bcc' as const },
+        ],
+        subject: options.subject,
+        body: options.body,
+        contentType: options.contentType,
+        replyTo: options.replyTo,
+        threadId: options.threadId,
+      })
+      const wrap = await wrapMail(bccRumor, this.privkey, bccPubkey)
+      results.push({ wrap, relays: this.relays })
+    }
+
+    return results
   }
 
   /**

@@ -19,36 +19,52 @@ import type { ParsedMail, ThreadNode } from './types.js'
 export function buildThread(messages: ParsedMail[]): ThreadNode[] {
   if (messages.length === 0) return []
 
-  // Step 1: Create a node for each message, indexed by message-id
+  // Step 1: Create a node for each message, indexed by message-id.
+  // F-THREAD-01: keep-first on a colliding message-id so a malicious sender
+  // cannot displace a legitimate node by reusing its message-id.
   const nodeMap = new Map<string, ThreadNode>()
+  const order: string[] = []
   for (const msg of messages) {
     const key = msg.messageId || msg.id
-    nodeMap.set(key, {
-      message: msg,
-      children: [],
-      parent: undefined,
-    })
+    if (nodeMap.has(key)) continue
+    nodeMap.set(key, { message: msg, children: [], parent: undefined })
+    order.push(key)
   }
 
-  // Step 2: Link children to parents via replyTo (references message-id)
+  // isAncestor walks up from `start` to detect whether `target` is already an
+  // ancestor — used to refuse a link that would create a cycle (F-THREAD-02).
+  const isAncestor = (target: ThreadNode, start: ThreadNode | undefined): boolean => {
+    let cur = start
+    while (cur) {
+      if (cur === target) return true
+      cur = cur.parent
+    }
+    return false
+  }
+
+  // Step 2: Link children to parents.
   const roots: ThreadNode[] = []
+  for (const key of order) {
+    const node = nodeMap.get(key)!
+    // F-THREAD-01 (TS↔Go parity, AMEND-007): a message with a `thread` tag but
+    // NO `reply` tag attaches to the thread root, not as a separate root.
+    let parentId = node.message.replyTo
+    if (!parentId && node.message.threadId) {
+      parentId = node.message.threadId
+    }
 
-  for (const msg of messages) {
-    const key = msg.messageId || msg.id
-    const node = nodeMap.get(key)
-    if (!node) continue
-
-    if (msg.replyTo) {
-      const parentNode = nodeMap.get(msg.replyTo)
-      if (parentNode) {
-        // Parent is in our message set — link them
+    if (parentId && parentId !== key) {
+      const parentNode = nodeMap.get(parentId)
+      // Refuse a link that would form a cycle; surface the node as a root so
+      // it is never silently dropped from the conversation.
+      if (parentNode && !isAncestor(node, parentNode)) {
         node.parent = parentNode
         parentNode.children.push(node)
         continue
       }
     }
 
-    // No replyTo, or parent not in the set — this is a root
+    // No parent, parent not in the set, self-reference, or would-be cycle.
     roots.push(node)
   }
 
@@ -82,8 +98,13 @@ export function buildThread(messages: ParsedMail[]): ThreadNode[] {
  */
 export function flattenThread(roots: ThreadNode[]): ParsedMail[] {
   const result: ParsedMail[] = []
+  // Defense in depth: a visited set guarantees termination even if a cycle
+  // ever slips past buildThread's cycle-prevention (F-THREAD-02).
+  const seen = new Set<ThreadNode>()
 
   const visit = (node: ThreadNode): void => {
+    if (seen.has(node)) return
+    seen.add(node)
     result.push(node.message)
     for (const child of node.children) {
       visit(child)

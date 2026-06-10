@@ -13,12 +13,13 @@ import type { MailMessage } from './types.js'
  * Uses crypto.getRandomValues() for cryptographic randomness.
  */
 function randomTimestampOffset(): number {
+  // AMEND-002: uniform integer in [-172800, +172800] INCLUSIVE.
+  // Modulo bias against 32-bit space is negligible (~10^-5).
   const maxOffset = 172800 // 2 days in seconds
+  const range = 2 * maxOffset + 1
   const buf = new Uint32Array(1)
   crypto.getRandomValues(buf)
-  // Map [0, 2^32) to [-maxOffset, +maxOffset]
-  const normalized = (buf[0]! / 0x100000000) * 2 - 1
-  return Math.floor(normalized * maxOffset)
+  return (buf[0]! % range) - maxOffset
 }
 
 /**
@@ -90,8 +91,11 @@ export async function wrapMail(
   // Sign the wrap with the ephemeral key
   const wrap = finalizeEvent(wrapTemplate, ephemeralPrivkey)
 
-  // Zero ephemeral key material (defense in depth)
+  // Zero ephemeral key material (DEC-014, defense in depth).
+  // Conversation keys are also zeroed to reduce the in-memory exposure window.
   ephemeralPrivkey.fill(0)
+  sealConvKey.fill(0)
+  wrapConvKey.fill(0)
 
   return wrap
 }
